@@ -603,6 +603,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('点「导出为图片」后按钮立刻进入禁用态', (WidgetTester tester) async {
+    // 回归：导出前要预热二维码（网络等待），若 setState(_exporting=true)
+    // 排在预热之后，这段期间按钮既没禁用、文案也没变，看起来就是「卡了一下」。
+    final ({TuringClient client, GlobalKey<NavigatorState> navKey}) t =
+        await pumpTuringOnNav(tester);
+
+    await tester.tap(find.text('更多操作'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('导出为图片'), findsOneWidget);
+
+    // 结算页比测试画布长，先滚进视口再点
+    await tester.ensureVisible(find.text('导出为图片'));
+    await tester.pump();
+    await tester.tap(find.text('导出为图片'));
+    await tester.pump(); // 只推进一帧：setState 应当已经生效
+
+    expect(find.text('导出中…'), findsOneWidget);
+    expect(find.text('导出为图片'), findsNothing);
+
+    // 放掉导出流程里未完成的异步。测试环境没有网络、也没有 path_provider，
+    // 二维码加载与写文件都必然失败 —— 这些异常是预期的，取走即可，
+    // 否则会被判成测试失败。
+    for (int i = 0; i < 4; i++) {
+      await tester.pump(const Duration(seconds: 1));
+      tester.takeException();
+    }
+
+    t.client.dispose();
+  });
+
   testWidgets('竖屏用底部导航：三个页签 + 切换', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(400, 860);
     tester.view.devicePixelRatio = 1.0;

@@ -69,16 +69,26 @@ class _TuringResultViewState extends State<TuringResultView> {
     final TuringResult? r = widget.client.result;
     if (r == null) return;
 
-    // 二维码是网络图，先预热；失败也不阻塞（海报里有 errorBuilder 兜底）
-    try {
-      await precacheImage(NetworkImage(TuringPoster.qrUrl), context);
-    } catch (_) {}
-    if (!mounted) return;
-
+    // 顺序很关键：先切到「导出中…」并让这一帧真的渲染出来。
+    // 二维码预热是网络等待，若放在 setState 之前，这段期间按钮既没禁用、
+    // 文案也没变，看起来就是「点下去卡了一下」。
     setState(() => _exporting = true);
     try {
-      // 等一帧：让屏幕外的海报完成布局与绘制
+      // 这一帧过后按钮已禁用、屏幕外的海报也已挂上并开始布局
       await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+
+      // 二维码是网络图，必须等它加载完再截，否则页脚是空的。
+      // 加超时：图床慢或不通时不能把导出卡死（海报里有 errorBuilder 兜底）。
+      try {
+        await precacheImage(NetworkImage(TuringPoster.qrUrl), context)
+            .timeout(const Duration(seconds: 6));
+      } catch (_) {}
+      if (!mounted) return;
+
+      // 再等一帧，确保二维码已经画上去
+      await WidgetsBinding.instance.endOfFrame;
+
       final RenderObject? obj = _posterKey.currentContext?.findRenderObject();
       if (obj is! RenderRepaintBoundary) {
         throw StateError('海报尚未渲染完成');
