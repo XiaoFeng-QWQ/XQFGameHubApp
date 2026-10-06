@@ -20,6 +20,7 @@ import 'package:xqf_game_hub/ui/pages/account/account_guest.dart';
 import 'package:xqf_game_hub/ui/pages/account/account_hero.dart';
 import 'package:xqf_game_hub/ui/pages/account/account_page.dart';
 import 'package:xqf_game_hub/ui/pages/turing/turing_page.dart';
+import 'package:xqf_game_hub/ui/widgets/turing/turing_poster.dart';
 import 'package:xqf_game_hub/ui/widgets/app_icon.dart';
 import 'package:xqf_game_hub/ui/widgets/doodle.dart';
 import 'package:xqf_game_hub/ui/pages/app_shell.dart';
@@ -557,6 +558,49 @@ void main() {
     expect(tester.widget<EditableText>(input).focusNode.hasFocus, isFalse);
 
     client.dispose();
+  });
+
+  testWidgets('导出海报 = 结果摘要 + 聊天记录全文 + 扫码页脚', (WidgetTester tester) async {
+    // 「导出为图片」导出的是**对局海报**，不是结算界面截图
+    const TuringResult result = TuringResult(
+      isWin: true,
+      verdict: '猜对啦！',
+      reveal: '对方是：AI',
+      totalMessages: 3,
+      elapsed: Duration(seconds: 95),
+      userGuess: 'ai',
+      opponentTruth: 'ai',
+      opponentGuess: 'human',
+    );
+    final List<TuringFeedItem> feed = <TuringFeedItem>[
+      TuringFeedItem.text(text: '你好', sender: '对手甲', mine: false),
+      TuringFeedItem.text(text: '你是人还是机器', sender: '测试者', mine: true),
+      TuringFeedItem.system('双方需 60 秒内互发至少一条消息'),
+    ];
+
+    await tester.pumpWidget(await _scope(
+      Scaffold(
+        body: SingleChildScrollView(
+          child: TuringPoster(result: result, feed: feed),
+        ),
+      ),
+      bare: true,
+    ));
+    await tester.pump();
+
+    // 结果摘要（按对错着色）
+    expect(find.text('猜对啦！'), findsOneWidget);
+    expect(find.text('对方是：AI'), findsOneWidget);
+    expect(find.text('你的判断'), findsOneWidget);
+    expect(find.text('对方猜你是'), findsOneWidget);
+    // 聊天记录全文（含系统提示）
+    expect(find.text('你好'), findsOneWidget);
+    expect(find.text('你是人还是机器'), findsOneWidget);
+    expect(find.text('双方需 60 秒内互发至少一条消息'), findsOneWidget);
+    // 页脚：品牌 + 「扫码来玩」二维码
+    expect(find.textContaining('图灵测试（1v1）'), findsOneWidget);
+    expect(find.text('扫码来玩'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('竖屏用底部导航：三个页签 + 切换', (WidgetTester tester) async {

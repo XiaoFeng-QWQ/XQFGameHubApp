@@ -14,6 +14,7 @@ import '../../widgets/app_icon.dart';
 import '../../widgets/doodle.dart';
 import '../../widgets/doodle_field.dart';
 import '../../widgets/paper.dart';
+import '../../widgets/turing/turing_poster.dart';
 import '../../widgets/toast.dart';
 
 /// 结果页。
@@ -39,8 +40,8 @@ class TuringResultView extends StatefulWidget {
 class _TuringResultViewState extends State<TuringResultView> {
   final TextEditingController _message = TextEditingController();
 
-  /// 导出图片时抓取这张卡。
-  final GlobalKey _cardKey = GlobalKey();
+  /// 导出时抓取屏幕外那张海报。
+  final GlobalKey _posterKey = GlobalKey();
 
   bool _actionsOpen = false;
   bool _exporting = false;
@@ -58,19 +59,31 @@ class _TuringResultViewState extends State<TuringResultView> {
     _message.clear();
   }
 
-  /// 把结果卡渲染成 PNG，交给系统分享面板。
+  /// 导出**对局海报**（不是结算界面截图）。
   ///
-  /// Web 端用 html2canvas；这里用 `RepaintBoundary.toImage`，
-  /// 无需把结果页重画一遍，也不依赖 WebView。
+  /// 海报内容对齐 Web 端 `exportChatImage()`：结果摘要 + 聊天记录全文 +
+  /// 品牌页脚与「扫码来玩」二维码。海报在屏幕外渲染（见 build 里的
+  /// `Positioned(left: -4000)`），用户看不到，也就不需要预览页。
   Future<void> _exportImage() async {
     if (_exporting) return;
+    final TuringResult? r = widget.client.result;
+    if (r == null) return;
+
+    // 二维码是网络图，先预热；失败也不阻塞（海报里有 errorBuilder 兜底）
+    try {
+      await precacheImage(NetworkImage(TuringPoster.qrUrl), context);
+    } catch (_) {}
+    if (!mounted) return;
+
     setState(() => _exporting = true);
     try {
-      final RenderObject? obj = _cardKey.currentContext?.findRenderObject();
+      // 等一帧：让屏幕外的海报完成布局与绘制
+      await WidgetsBinding.instance.endOfFrame;
+      final RenderObject? obj = _posterKey.currentContext?.findRenderObject();
       if (obj is! RenderRepaintBoundary) {
-        throw StateError('结果卡尚未渲染完成');
+        throw StateError('海报尚未渲染完成');
       }
-      final ui.Image image = await obj.toImage(pixelRatio: 3);
+      final ui.Image image = await obj.toImage(pixelRatio: 2);
       final ByteData? data =
           await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
@@ -102,13 +115,13 @@ class _TuringResultViewState extends State<TuringResultView> {
     final TuringResult? r = c.result;
     if (r == null) return const SizedBox.shrink();
 
-    return SingleChildScrollView(
+    final Widget card = SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
+          // 卡片单独一层：屏幕外那张海报重绘时不会连带它一起失效
           child: RepaintBoundary(
-            key: _cardKey,
             child: DoodlePanel(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
               child: Column(
@@ -269,6 +282,24 @@ class _TuringResultViewState extends State<TuringResultView> {
           ),
         ),
       ),
+    );
+
+    return Stack(
+      // Clip.none 是关键：海报被放在屏幕外，若裁剪掉就不会被绘制，
+      // toImage 也就拿不到内容。
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        card,
+        if (_exporting)
+          Positioned(
+            left: -4000,
+            top: 0,
+            child: RepaintBoundary(
+              key: _posterKey,
+              child: TuringPoster(result: r, feed: widget.client.feed),
+            ),
+          ),
+      ],
     );
   }
 }
