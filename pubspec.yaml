@@ -25,6 +25,8 @@ dependencies:
   # 外部浏览器：用户协议、隐私政策、网页版入口
   url_launcher: ^6.3.3
   webview_flutter: ^4.14.1
+  path_provider: ^2.1.6
+  share_plus: ^13.3.1
 
 dev_dependencies:
   flutter_test:

@@ -1,4 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/palette.dart';
 import '../../../data/models/turing.dart';
@@ -31,7 +38,12 @@ class TuringResultView extends StatefulWidget {
 
 class _TuringResultViewState extends State<TuringResultView> {
   final TextEditingController _message = TextEditingController();
+
+  /// 导出图片时抓取这张卡。
+  final GlobalKey _cardKey = GlobalKey();
+
   bool _actionsOpen = false;
+  bool _exporting = false;
 
   @override
   void dispose() {
@@ -44,6 +56,43 @@ class _TuringResultViewState extends State<TuringResultView> {
     if (text.isEmpty) return;
     widget.client.leaveMessage(text);
     _message.clear();
+  }
+
+  /// 把结果卡渲染成 PNG，交给系统分享面板。
+  ///
+  /// Web 端用 html2canvas；这里用 `RepaintBoundary.toImage`，
+  /// 无需把结果页重画一遍，也不依赖 WebView。
+  Future<void> _exportImage() async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    try {
+      final RenderObject? obj = _cardKey.currentContext?.findRenderObject();
+      if (obj is! RenderRepaintBoundary) {
+        throw StateError('结果卡尚未渲染完成');
+      }
+      final ui.Image image = await obj.toImage(pixelRatio: 3);
+      final ByteData? data =
+          await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (data == null) throw StateError('图片编码失败');
+
+      final Directory dir = await getTemporaryDirectory();
+      final String path =
+          '${dir.path}/xqf_turing_${DateTime.now().millisecondsSinceEpoch}.png';
+      await File(path).writeAsBytes(data.buffer.asUint8List());
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: <XFile>[XFile(path)],
+          subject: '图灵测试对局 · XQFGameHub',
+          text: '图灵测试对局 · XQFGameHub',
+        ),
+      );
+    } catch (e) {
+      if (mounted) showTopToast(context, '导出失败：$e', isError: true);
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
   }
 
   @override
@@ -59,6 +108,7 @@ class _TuringResultViewState extends State<TuringResultView> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: RepaintBoundary(
+            key: _cardKey,
             child: DoodlePanel(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
               child: Column(
@@ -131,6 +181,15 @@ class _TuringResultViewState extends State<TuringResultView> {
                   if (_actionsOpen) ...<Widget>[
                     const SizedBox(height: 12),
                     const DashedDivider(),
+                    const SizedBox(height: 12),
+
+                    // 导出为图片
+                    DoodleButton(
+                      expand: true,
+                      icon: 'image',
+                      onPressed: _exporting ? null : _exportImage,
+                      child: Text(_exporting ? '导出中…' : '导出为图片'),
+                    ),
                     const SizedBox(height: 12),
 
                     // 保存聊天记录
