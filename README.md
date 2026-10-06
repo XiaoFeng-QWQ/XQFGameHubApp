@@ -82,10 +82,22 @@ Hero 的「文案 / 手绘」由左右分栏改为上下堆叠），但配色、
 
 **未登录**
 
-- 邮箱验证码登录 / 注册（`POST /api/email/send-code` + `POST /api/email/auth`），
+一张「登录账号」卡 + **两个 tab**（`DoodleChoiceChip`，与 Web 端 `.acc-sticker-tab` 同一形态）：
+
+- **邮箱验证码**（默认）：邮箱验证码登录 / 注册
+  （`POST /api/email/send-code` + `POST /api/email/auth`），
   含 60 秒倒计时、邮箱格式校验、注册即同意协议的提示。
-- 找回旧账号（`GET /api/generate-player-id?action=recover`，折叠区）。
+- **账号密码**：代号 + 密码登录（`GET /api/generate-player-id?action=recover`）。
+  ⚠️ 该接口用 `password_verify` 校验 `password_hash`，而**邮箱注册的账号
+  `password_hash` 默认为空串**，所以它只对「已设置密码」的账号有效
+  （旧版代号密码账号，或在「账号安全」里设过密码的邮箱账号）——
+  卡面文案明确写了这一点，避免用户以为人人可用。
 - 第三方登录说明（OAuth 依赖浏览器回调，App 内点开会用内置 WebView 打开网页版账号中心）。
+
+> 与 Web 端的差异：Web 端把「邮箱登录 / 注册」和「找回账号」摆成上下两张卡片，
+> App 里合并成一张卡 + tab —— 手机屏窄，两张卡要滚动才能看全，
+> 而它们本来就是「同一件事的两种做法」。顺带省掉了原来那个
+> 「已有旧账号？」折叠区（要多点一次才展开）。
 
 **已登录**
 
@@ -285,7 +297,7 @@ tools/build_android.sh debug
 | --- | --- |
 | 邮箱验证码 | `POST /api/email/send-code`（`scene=auth` / `bind_email`） |
 | 邮箱登录 / 注册 | `POST /api/email/auth` |
-| 找回旧账号 | `GET /api/generate-player-id?action=recover` |
+| 账号密码登录 / 找回旧账号 | `GET /api/generate-player-id?action=recover` |
 | 账号总览 | `GET /api/account/overview` |
 | 修改昵称 | `POST /api/account/nickname` |
 | 上传头像 | `POST /api/account/avatar`（multipart，≤ 2MB） |
@@ -329,16 +341,16 @@ tools/build_android.sh debug
 flutter test
 ```
 
-共 31 个用例，全部通过：
+共 32 个用例，全部通过：
 
 - `test/unit_test.dart` —— `XqfTime` 时间解析 / 格式化、`XqfPalette` 与 CSS 变量
   一致性、`XqfRadii` 与 `border-radius` 简写的对应关系、`parseApiError` 的
   两套结果约定（`error` / `success:false`）、`MyTags` 解析、`ChatHistoryItem` 标签映射。
 - `test/widget_test.dart` —— Widget 冒烟测试：设计系统组件（面板 / 按钮 / 标签 /
   印章 / 点阵纸 / 横格纸 / 虚线）、**全部 47 个线性图标的 SVG 解析**、玩法卡、
-  账号中心未登录视图、身份卡；以及 App 外壳（竖屏底部导航 / 宽屏侧栏）、
-  玩法页、关于页（含「赞助支持」走弹窗而非外链、客户端信息里的开发协助模型）、
-  折叠分组、「我的」页未登录时的外观三态切换，
+  账号中心未登录视图（含登录卡的 tab 切换）、身份卡；以及 App 外壳
+  （竖屏底部导航 / 宽屏侧栏）、玩法页、关于页（含「赞助支持」走弹窗而非外链、
+  客户端信息里的开发协助模型）、折叠分组、「我的」页未登录时的外观三态切换，
   验证渲染不抛异常且关键文案与结构存在。
 
 需要真实后端的页面级测试留待集成测试。

@@ -145,14 +145,45 @@ void main() {
     await tester.pumpWidget(await _scope(
       AccountGuestView(onSignedIn: () async {}),
     ));
+    await tester.pumpAndSettle();
 
-    expect(find.text('邮箱登录 / 注册'), findsOneWidget);
-    expect(find.text('找回账号'), findsOneWidget);
+    // 「找回账号」已并入登录卡，改成 tab 切换
+    expect(find.text('登录账号'), findsOneWidget);
+    expect(find.text('邮箱验证码'), findsOneWidget);
+    expect(find.text('账号密码'), findsOneWidget);
     expect(find.text('第三方登录'), findsOneWidget);
+    // 默认是邮箱验证码 tab
     expect(find.text('登录 / 注册'), findsOneWidget);
     expect(find.text('获取验证码'), findsOneWidget);
     expect(find.text('《用户协议》'), findsOneWidget);
     expect(find.text('《隐私政策》'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('未登录视图：tab 切换邮箱验证码 / 账号密码', (WidgetTester tester) async {
+    await tester.pumpWidget(await _scope(
+      AccountGuestView(onSignedIn: () async {}),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('账号密码'));
+    await tester.pumpAndSettle();
+
+    // 切到密码 tab：验证码与协议文案随邮箱表单一起消失，换成密码登录
+    expect(find.text('获取验证码'), findsNothing);
+    expect(find.text('登录 / 注册'), findsNothing);
+    expect(find.text('《用户协议》'), findsNothing);
+    expect(find.text('登录'), findsOneWidget);
+    // 讲清楚密码登录的适用范围（邮箱注册的账号默认没有密码）
+    expect(find.textContaining('仅适用于已设置密码的账号'), findsOneWidget);
+
+    await tester.tap(find.text('邮箱验证码'));
+    await tester.pumpAndSettle();
+
+    // 切回来，邮箱表单恢复
+    expect(find.text('获取验证码'), findsOneWidget);
+    expect(find.text('登录 / 注册'), findsOneWidget);
+    expect(find.text('登录'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -221,10 +252,11 @@ void main() {
     expect(find.text('全部玩法'), findsOneWidget);
     expect(find.text('推理对局'), findsOneWidget);
 
-    // 切到「我的」页签（未登录 → 邮箱登录面板）
+    // 切到「我的」页签（未登录 → 登录卡，默认邮箱验证码 tab）
     await tester.tap(nav('我的'));
     await tester.pumpAndSettle();
-    expect(find.text('邮箱登录 / 注册'), findsOneWidget);
+    expect(find.text('登录账号'), findsOneWidget);
+    expect(find.text('邮箱验证码'), findsOneWidget);
 
     expect(tester.takeException(), isNull);
   });
