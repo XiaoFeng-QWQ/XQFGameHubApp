@@ -283,14 +283,6 @@ class XqfRadii {
 
   // ---- 玩法内页（图灵测试）----
 
-  /// 对局「笔记本」容器（Web 端 `.notebook-container`：`5px 15px 15px 5px`，书脊感）。
-  static const BorderRadius notebook = BorderRadius.only(
-    topLeft: Radius.circular(5),
-    topRight: Radius.circular(15),
-    bottomRight: Radius.circular(15),
-    bottomLeft: Radius.circular(5),
-  );
-
   /// 对手气泡（Web 端 `.bubble-left`：`15px 15px 15px 0`，缺口在左下）。
   static const BorderRadius bubbleLeft = BorderRadius.only(
     topLeft: Radius.circular(15),

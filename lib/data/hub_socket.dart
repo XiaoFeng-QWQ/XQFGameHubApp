@@ -67,7 +67,12 @@ class HubSocket extends ChangeNotifier {
 
   int? get onlineCount => _onlineCount;
   List<String> get announcements => List<String>.unmodifiable(_announcements);
-  bool get connected => _socket != null;
+
+  /// 是否已连接。
+  ///
+  /// 测试环境（[disabled]）下恒为 true：否则每个 Widget 测试都会顶着
+  /// 「连接已断开」覆盖层，那层是不透明的遮罩，会吃掉所有点击。
+  bool get connected => _socket != null || disabled;
 
   /// 最近一次收到的公告（用于弹幕提示）。
   final StreamController<String> _broadcast = StreamController<String>.broadcast();

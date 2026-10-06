@@ -70,7 +70,7 @@ Container(color: const Color(0xFFFDF5C9), ...)
 
 ### 1.2 圆角
 
-**只有 14 个档位**（11 个椭圆圆角 + 3 个规则圆角），
+**只有 13 个档位**（11 个椭圆圆角 + 2 个规则圆角），
 椭圆档位对应 CSS 的 `a b c d / e f g h`。
 禁止自己写 `BorderRadius.circular(N)`。
 
@@ -90,7 +90,6 @@ Container(color: const Color(0xFFFDF5C9), ...)
 | `XqfRadii.sheet` | `18px`（仅顶部） | 底部抽屉 |
 | `XqfRadii.micro` | `3px` | 审核角标、小药丸、拖拽把手 |
 | `XqfRadii.circle` | `999px` | 头像、圆形图标按钮 |
-| `XqfRadii.notebook` | `5px 15px 15px 5px` | 对局「笔记本」容器（书脊感） |
 | `XqfRadii.bubbleLeft` | `15px 15px 15px 0` | 对局气泡（对手，缺口左下） |
 | `XqfRadii.bubbleRight` | `15px 15px 0 15px` | 对局气泡（自己，缺口右下） |
 
@@ -346,16 +345,25 @@ try {
 | `chatting` / `waitingOpponent` | `TuringChatView` | `#chat-page` |
 | `finished` | `TuringResultView` | `#result-area` |
 
-**对局容器**（`.notebook-container`）—— 白色纸面 + 2px 墨色描边 +
-`XqfRadii.notebook`（`5px 15px 15px 5px`，书脊感）+ `XqfShadows.soft`，限宽 900。
+**全出血，不套卡片。** Web 端是「居中卡片 + 2px 边框 + 阴影 + 限宽 900」，
+那是桌面版式 —— 手机上边框和留白会吃掉本就不宽的可视区。
+这里只保留四段：**细对手条 / 聊天区 / 判定区 / 输入区**，
+宽屏（平板、横屏）才限宽 720 居中，且只限宽、不画框。
 
-**聊天区** —— `RuledPaper(lineHeight: 30, lineColor: chatGrid)` 铺横格纸；
+**聊天区** —— `RuledPaper(lineHeight: 30, lineColor: chatGrid)` 铺横格纸，占满剩余空间；
 气泡左黄右蓝、2px 墨色描边、`XqfRadii.bubbleLeft` / `bubbleRight`、最大宽度 70%；
 系统提示居中斜体，需要醒目时（判定通知）用 `danger` 色加粗。
+对手信息压成顶部一条细条（连接点 + `对手 ???` + 高亮计时 + 举报），
+不照搬 Web 端那个大块 `.chat-header`。
 
-**判定区** —— 深色底 `judgeBg` + 白色文字，两个描边按钮（人类 / AI），
-未解锁时 `Opacity(0.4)` 且不可点。判定门槛的文案由客户端算：
-「开局 10 秒后 / 你发送一条消息 即可判定」。
+**判定区** —— 深色底 `judgeBg` + 白色文字，两个描边按钮（人类 / AI）。
+放在**输入框上方**：Web 端把它压在输入框下面，手机上键盘一弹就被顶掉。
+未解锁时只占一条提示的高度，解锁后用 `AnimatedSize`（200ms easeOutCubic）
+展开出按钮和标签输入 —— 这是状态反馈，不是装饰。
+判定门槛的文案由客户端算：「开局 10 秒后 / 你发送一条消息 即可判定」。
+
+**键盘** —— 发送后主动 `unfocus()` 收起键盘：发完一条要等对方回应，
+键盘留着会挡住聊天区。打开表情面板 / 举报面板前也先收键盘，免得两层叠一起。
 
 **结果页** —— 图标 + 结论 + 揭示 + 六项数据（你的判断 / 对方身份 / 对方标签 /
 对方猜你是 / 对话条数 / 用时），次要操作收进可折叠的「更多操作」。

@@ -14,9 +14,14 @@ import '../../widgets/turing/turing_sticker_sheet.dart';
 
 /// 对局中：聊天 + 判定。
 ///
-/// 对应 Web 端 `#chat-page` 的 `.notebook-container`：
-/// 横格纸聊天区、左黄右蓝气泡、底部深色判定区。
-/// 已提交判定后只隐藏判定区，输入区保持可见（与 Web 端一致）。
+/// **版式按移动端重排，不是 Web 端 `.notebook-container` 的照搬。**
+/// Web 端是「居中卡片 + 2px 边框 + 阴影 + 限宽 900」，那套在手机上：
+/// - 边框和留白白吃掉本就不宽的可视区；
+/// - 判定区压在输入框下面，键盘一弹就被顶掉。
+///
+/// 所以这里：**全出血**（无边框无阴影）、顶部压成一条细的对手条、
+/// 判定区挪到**输入框上方**（键盘弹起也够得着）、
+/// 判定未解锁时只占一条提示的高度（[AnimatedSize] 展开）。
 class TuringChatView extends StatefulWidget {
   const TuringChatView({super.key, required this.client});
 
@@ -45,9 +50,13 @@ class _TuringChatViewState extends State<TuringChatView> {
     if (text.trim().isEmpty) return;
     widget.client.sendMessage(text);
     _input.clear();
+    // 发完一条通常要等对方回应，键盘挡着聊天区和判定区，收起来
+    FocusScope.of(context).unfocus();
   }
 
   Future<void> _pickSticker() async {
+    // 表情面板也是从底部弹出，先收键盘免得叠在一起
+    FocusScope.of(context).unfocus();
     await showTuringStickerSheet(
       context,
       onPick: (Sticker s) {
@@ -57,6 +66,7 @@ class _TuringChatViewState extends State<TuringChatView> {
   }
 
   Future<void> _report() async {
+    FocusScope.of(context).unfocus();
     final String? reason = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -79,66 +89,61 @@ class _TuringChatViewState extends State<TuringChatView> {
     final XqfPalette p = XqfPalette.of(context);
     final TuringClient c = widget.client;
 
-    // 有新消息时贴底（只在用户本来就在底部附近时更自然，这里简化为始终贴底）
+    // 有新消息时贴底
     if (c.feed.length != _lastFeedLength) {
       _lastFeedLength = c.feed.length;
       _scrollToBottomSoon();
     }
 
+    // 全出血：不套卡片。宽屏（平板/横屏）才限宽居中，且只是限宽、不画框。
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-          child: Container(
-            decoration: BoxDecoration(
-              color: p.surfaceWhite,
-              border: Border.all(color: p.inkBlack, width: 2),
-              borderRadius: XqfRadii.notebook,
-              boxShadow: XqfShadows.soft(p),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: <Widget>[
-                _ChatHeader(client: c, onReport: _report),
-                Expanded(
-                  child: RuledPaper(
-                    lineHeight: 30,
-                    lineColor: p.chatGrid,
-                    child: ListView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                      itemCount: c.feed.length,
-                      itemBuilder: (BuildContext context, int i) =>
-                          TuringBubble(item: c.feed[i]),
-                    ),
-                  ),
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: Column(
+          children: <Widget>[
+            _OpponentStrip(client: c, onReport: _report),
+            Expanded(
+              child: RuledPaper(
+                lineHeight: 30,
+                lineColor: p.chatGrid,
+                child: ListView.builder(
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  itemCount: c.feed.length,
+                  itemBuilder: (BuildContext context, int i) =>
+                      TuringBubble(item: c.feed[i]),
                 ),
-                _InputBar(
-                  controller: _input,
-                  enabled: c.inputEnabled,
-                  onSend: _send,
-                  onPickSticker: _pickSticker,
-                ),
-                if (c.phase == TuringPhase.chatting)
-                  _JudgeBar(
-                    client: c,
-                    tagController: _tag,
-                    onJudge: (String guess) =>
-                        c.judge(guess, tag: _tag.text.trim()),
-                  ),
-              ],
+              ),
             ),
-          ),
+            if (c.phase == TuringPhase.chatting)
+              _JudgeBar(
+                client: c,
+                tagController: _tag,
+                onJudge: (String guess) {
+                  FocusScope.of(context).unfocus();
+                  c.judge(guess, tag: _tag.text.trim());
+                },
+              )
+            else if (c.phase == TuringPhase.waitingOpponent)
+              const _WaitingBar(),
+            _InputBar(
+              controller: _input,
+              enabled: c.inputEnabled,
+              onSend: _send,
+              onPickSticker: _pickSticker,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// 对局头部：对手 / 连接状态 / 计时 / 举报。
-class _ChatHeader extends StatelessWidget {
-  const _ChatHeader({required this.client, required this.onReport});
+/// 对手条：一条细的横条，取代 Web 端那个大块 `.chat-header`。
+///
+/// 对局中不暴露对手昵称（`???`），结果页才揭晓。
+class _OpponentStrip extends StatelessWidget {
+  const _OpponentStrip({required this.client, required this.onReport});
 
   final TuringClient client;
   final VoidCallback onReport;
@@ -149,111 +154,67 @@ class _ChatHeader extends StatelessWidget {
     final bool urgent = client.remainingSeconds <= 10;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
       decoration: BoxDecoration(
+        color: p.surfaceHeader,
         border: Border(bottom: BorderSide(color: p.borderLighter, width: 2)),
       ),
       child: Row(
         children: <Widget>[
           Container(
-            width: 40,
-            height: 40,
+            width: 8,
+            height: 8,
             decoration: BoxDecoration(
-              color: p.noteYellow,
+              color: client.connected ? p.success : p.danger,
               shape: BoxShape.circle,
-              border: Border.all(color: p.inkBlack, width: 2),
-            ),
-            child: Center(child: AppIcon('user', size: 20, color: p.inkBlack)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  '当前对手',
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: p.textSubtle,
-                  ),
-                ),
-                Text(
-                  // 对局中不暴露对手昵称，结束后结果页才揭晓
-                  client.phase == TuringPhase.finished
-                      ? (client.opponentName.isEmpty ? '???' : client.opponentName)
-                      : '???',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: p.inkBlack,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // 连接状态
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              border: Border.all(color: p.borderLight, width: 1.5),
-              borderRadius: XqfRadii.tag,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: client.connected ? p.success : p.danger,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  client.connected ? '在线' : '重连中',
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: p.textSubtle,
-                  ),
-                ),
-              ],
             ),
           ),
           const SizedBox(width: 8),
+          Text(
+            '对手',
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: p.textSubtle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            client.phase == TuringPhase.finished && client.opponentName.isNotEmpty
+                ? client.opponentName
+                : '???',
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: p.inkBlack,
+            ),
+          ),
+          const Spacer(),
+          // 计时：对局里最该一眼看到的信息，做成高亮条
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: urgent ? p.dangerLight : p.noteYellow,
+              border: Border.all(color: p.inkBlack, width: 2),
+              borderRadius: XqfRadii.tag,
+            ),
+            child: Text(
+              formatClock(client.remainingSeconds),
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: urgent ? p.dangerDark : p.inkBlue,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
           HeaderIconButton(
             icon: 'alert',
             tooltip: '举报对方',
-            size: 16,
+            size: 15,
             onPressed: onReport,
-          ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              Text(
-                '剩余时间',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: p.textSubtle,
-                ),
-              ),
-              Text(
-                formatClock(client.remainingSeconds),
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: urgent ? p.danger : p.inkBlue,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -279,49 +240,56 @@ class _InputBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final XqfPalette p = XqfPalette.of(context);
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
         color: p.bgInput,
         border: Border(top: BorderSide(color: p.borderLighter, width: 2)),
       ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: DoodleField(
-              controller: controller,
-              enabled: enabled,
-              hint: enabled ? '写点什么试探一下…' : '本局已不能发言',
-              maxLength: 300,
-              fontSize: 14,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => onSend(),
-              suffix: GestureDetector(
-                onTap: enabled ? onPickSticker : null,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: AppIcon(
-                    'sticker',
-                    size: 18,
-                    color: enabled ? p.inkBlue : p.textAa,
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: DoodleField(
+                key: const Key('turing-input'),
+                controller: controller,
+                enabled: enabled,
+                hint: enabled ? '写点什么试探一下…' : '本局已不能发言',
+                maxLength: 300,
+                fontSize: 14,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => onSend(),
+                suffix: GestureDetector(
+                  onTap: enabled ? onPickSticker : null,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: AppIcon(
+                      'sticker',
+                      size: 18,
+                      color: enabled ? p.inkBlue : p.textAa,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          DoodleButton(
-            icon: 'send',
-            onPressed: enabled ? onSend : null,
-            child: const Text('发送'),
-          ),
-        ],
+            const SizedBox(width: 8),
+            DoodleButton(
+              icon: 'send',
+              onPressed: enabled ? onSend : null,
+              child: const Text('发送'),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// 判定区：深色底 + 两个判定按钮 + 可选标签。
+/// 判定区（深色）。
+///
+/// 未解锁时只占一条提示的高度；解锁后 [AnimatedSize] 展开出两个按钮和标签输入。
+/// 放在输入框**上方**，键盘弹起时不会被顶掉。
 class _JudgeBar extends StatelessWidget {
   const _JudgeBar({
     required this.client,
@@ -338,81 +306,61 @@ class _JudgeBar extends StatelessWidget {
     final XqfPalette p = XqfPalette.of(context);
     final bool can = client.canJudge;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      color: p.judgeBg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        AppIcon('info', size: 15, color: p.surfaceWhite),
-                        const SizedBox(width: 6),
-                        Text(
-                          '锁定你的答案',
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: p.surfaceWhite,
-                          ),
-                        ),
-                      ],
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        width: double.infinity,
+        color: p.judgeBg,
+        padding: EdgeInsets.fromLTRB(14, can ? 12 : 8, 14, can ? 12 : 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (can) ...<Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _JudgeButton(
+                      label: '它是人类',
+                      icon: 'user',
+                      enabled: true,
+                      onTap: () => onJudge('human'),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '选定后就不能反悔咯',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        color: p.textAa,
-                      ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _JudgeButton(
+                      label: '它是 AI',
+                      icon: 'server',
+                      enabled: true,
+                      onTap: () => onJudge('ai'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              _JudgeButton(
-                label: '它是人类',
-                icon: 'user',
-                color: p.successColor,
-                enabled: can,
-                onTap: () => onJudge('human'),
+              const SizedBox(height: 8),
+              DoodleField(
+                controller: tagController,
+                hint: '给对手贴个标签（可选）',
+                maxLength: 10,
+                fontSize: 13,
               ),
-              const SizedBox(width: 8),
-              _JudgeButton(
-                label: '它是 AI',
-                icon: 'server',
-                color: p.dangerColor,
-                enabled: can,
-                onTap: () => onJudge('ai'),
-              ),
+              const SizedBox(height: 6),
             ],
-          ),
-          const SizedBox(height: 8),
-          DoodleField(
-            controller: tagController,
-            enabled: can,
-            hint: '给对手贴个标签（可选）',
-            maxLength: 10,
-            fontSize: 13,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            client.judgeHint,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              color: p.textAa,
+            Text(
+              client.judgeHint,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                height: 1.4,
+                color: can ? p.noteYellow : p.textAa,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -422,14 +370,12 @@ class _JudgeButton extends StatelessWidget {
   const _JudgeButton({
     required this.label,
     required this.icon,
-    required this.color,
     required this.enabled,
     required this.onTap,
   });
 
   final String label;
   final String icon;
-  final Color color;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -439,29 +385,51 @@ class _JudgeButton extends StatelessWidget {
     return GestureDetector(
       onTap: enabled ? onTap : null,
       behavior: HitTestBehavior.opaque,
-      child: Opacity(
-        opacity: enabled ? 1 : 0.4,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            border: Border.all(color: p.surfaceWhite, width: 2),
-            borderRadius: XqfRadii.button,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              AppIcon(icon, size: 14, color: p.surfaceWhite),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  color: p.surfaceWhite,
-                ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: p.surfaceWhite, width: 2),
+          borderRadius: XqfRadii.button,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            AppIcon(icon, size: 15, color: p.surfaceWhite),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: p.surfaceWhite,
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 已提交判定、等对方时的细条。
+class _WaitingBar extends StatelessWidget {
+  const _WaitingBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final XqfPalette p = XqfPalette.of(context);
+    return Container(
+      width: double.infinity,
+      color: p.judgeBg,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      child: Text(
+        '已锁定答案，等待对方判定…',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+          color: p.noteYellow,
         ),
       ),
     );

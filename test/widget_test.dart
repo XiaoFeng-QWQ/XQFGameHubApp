@@ -359,6 +359,69 @@ void main() {
     t.client.dispose();
   });
 
+  testWidgets('发送消息后自动收起键盘', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final AppPrefs prefs = await AppPrefs.init();
+    final AppServices services = AppServices(prefs);
+    final AuthController auth = AuthController(prefs)..restore();
+    final ThemeController theme = ThemeController(prefs);
+    final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
+
+    await tester.pumpWidget(AppScope(
+      services: services,
+      auth: auth,
+      theme: theme,
+      child: MaterialApp(
+        navigatorKey: navKey,
+        theme: XqfTheme.light(),
+        home: const Scaffold(body: Center(child: Text('占位首页'))),
+      ),
+    ));
+
+    // 需要「对局中」阶段输入框才可用；ticker 结束时由 dispose 收掉
+    final TuringClient client = TuringClient(services.hub);
+    client.start(
+      nickname: '测试者',
+      playerToken: 'tk',
+      fingerprint: 'fp',
+      durationSeconds: 300,
+    );
+    services.hub.debugEmit(<String, dynamic>{
+      'type': 'matched',
+      'opponent_name': '对手甲',
+      'session_id': 's1',
+      'duration': 300,
+    });
+    await tester.pump();
+    expect(client.phase, TuringPhase.chatting);
+
+    navKey.currentState!.push(MaterialPageRoute<void>(
+      builder: (_) => TuringPage(onRequireLogin: () {}, client: client),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final Finder input = find.descendant(
+      of: find.byKey(const Key('turing-input')),
+      matching: find.byType(EditableText),
+    );
+    expect(input, findsOneWidget);
+
+    await tester.showKeyboard(input);
+    await tester.pump();
+    expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+
+    await tester.enterText(input, '你好');
+    await tester.pump();
+    await tester.tap(find.text('发送'));
+    await tester.pump();
+
+    // 发完就收键盘：否则会挡住聊天区，判定区也被顶掉
+    expect(tester.widget<EditableText>(input).focusNode.hasFocus, isFalse);
+
+    client.dispose();
+  });
+
   testWidgets('竖屏用底部导航：三个页签 + 切换', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(400, 860);
     tester.view.devicePixelRatio = 1.0;
