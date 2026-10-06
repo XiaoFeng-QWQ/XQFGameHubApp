@@ -327,6 +327,8 @@ void main() {
     final ({TuringClient client, GlobalKey<NavigatorState> navKey}) t =
         await pumpTuringOnNav(tester);
     expect(find.text('再来一局'), findsOneWidget);
+    // 分享战绩分享的是账号累计统计，不属于对局结算页
+    expect(find.text('分享战绩到聊天室'), findsNothing);
 
     // 页头返回 → 二次确认 → 确认后必须真的退出
     await tester.tap(find.byTooltip('返回'));
@@ -713,6 +715,9 @@ void main() {
     ));
 
     expect(find.text('小明'), findsOneWidget);
+    // 分享的是累计战绩（总场次/胜/负/胜率），所以入口在数据卡这里，
+    // 不在对局结算页
+    expect(find.text('分享战绩到聊天室'), findsOneWidget);
     expect(find.text('#42'), findsOneWidget);
     expect(find.text('理性'), findsOneWidget);
     expect(find.text('新年快乐'), findsOneWidget);

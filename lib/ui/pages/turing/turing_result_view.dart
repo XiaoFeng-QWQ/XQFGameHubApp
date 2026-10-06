@@ -219,15 +219,6 @@ class _TuringResultViewState extends State<TuringResultView> {
                     ],
                     const SizedBox(height: 12),
 
-                    // 分享战绩
-                    DoodleButton(
-                      expand: true,
-                      icon: 'megaphone',
-                      onPressed: c.shareRecord,
-                      child: const Text('分享战绩到聊天室'),
-                    ),
-                    const SizedBox(height: 12),
-
                     // 给对方留言
                     Text(
                       '给对手留句话（可选，20 字内）',

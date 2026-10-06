@@ -51,12 +51,11 @@ class _TuringPageState extends State<TuringPage> {
     _client = c;
   }
 
-  /// 分享 / 举报 / 错误都由服务端异步回执，这里弹提示并清空。
+  /// 举报 / 错误都由服务端异步回执，这里弹提示并清空。
   void _onClientUpdate(TuringClient c) {
-    final String? share = c.shareRecordMessage;
     final String? report = c.reportResult;
     final String? error = c.lastError;
-    if (share == null && report == null && error == null) return;
+    if (report == null && error == null) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -65,12 +64,9 @@ class _TuringPageState extends State<TuringPage> {
         showTopToast(context, error, isError: true);
       } else if (report != null) {
         showTopToast(context, report, isError: !c.reportOk);
-      } else if (share != null) {
-        showTopToast(context, share, isError: !c.shareRecordOk);
       }
       c.clearError();
       c.clearReportResult();
-      c.clearShareRecordMessage();
     });
   }
 

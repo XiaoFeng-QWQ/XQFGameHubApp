@@ -61,8 +61,6 @@ class TuringClient extends ChangeNotifier {
   int? _savedHistoryId;
   bool _sendingLeaveMessage = false;
   String? _leaveMessageStatus;
-  String? _shareRecordMessage;
-  bool _shareRecordOk = false;
   String? _reportResult;
   bool _reportOk = false;
   bool _banned = false;
@@ -104,16 +102,6 @@ class TuringClient extends ChangeNotifier {
   String get remainingLabel => unlimited && !_judgeWindow
       ? '∞'
       : formatClock(_remaining);
-
-  /// 最近一次「分享战绩」的结果，供 UI 弹完提示后 [clearShareRecordMessage]。
-  String? get shareRecordMessage => _shareRecordMessage;
-  bool get shareRecordOk => _shareRecordOk;
-
-  void clearShareRecordMessage() {
-    if (_shareRecordMessage == null) return;
-    _shareRecordMessage = null;
-    notifyListeners();
-  }
 
   /// 举报结果（服务端异步回执），供 UI 弹完提示后清空。
   String? get reportResult => _reportResult;
@@ -276,10 +264,6 @@ class TuringClient extends ChangeNotifier {
     _hub.send(<String, dynamic>{'type': 'leave_message', 'text': msg});
   }
 
-  void shareRecord() {
-    _hub.send(<String, dynamic>{'type': 'share_record'});
-  }
-
   // ---- 内部 ----
 
   void _append(TuringFeedItem item) => _feed.add(item);
@@ -346,8 +330,6 @@ class TuringClient extends ChangeNotifier {
         _onSaveHistoryStatus(msg);
       case 'leave_message_status':
         _onLeaveMessageStatus(msg);
-      case 'share_record_status':
-        _onShareRecordStatus(msg);
       case 'report_result':
         _reportOk = msg['success'] == true;
         _reportResult = '${msg['message'] ?? (_reportOk ? '举报已提交' : '举报失败')}';
@@ -541,13 +523,6 @@ class TuringClient extends ChangeNotifier {
     _sendingLeaveMessage = false;
     final bool ok = msg['success'] == true || msg['ok'] == true;
     _leaveMessageStatus = ok ? '留言已发送' : '${msg['message'] ?? '发送失败'}';
-    notifyListeners();
-  }
-
-  void _onShareRecordStatus(Map<String, dynamic> msg) {
-    final bool ok = msg['success'] == true || msg['ok'] == true;
-    _shareRecordMessage = '${msg['message'] ?? (ok ? '战绩卡片已分享到聊天室' : '分享失败，请重试')}';
-    _shareRecordOk = ok;
     notifyListeners();
   }
 

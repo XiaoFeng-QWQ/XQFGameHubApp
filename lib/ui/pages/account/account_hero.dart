@@ -17,6 +17,7 @@ import '../../widgets/paper.dart';
 import '../../widgets/player_avatar.dart';
 import '../../widgets/toast.dart';
 import '../web_page.dart';
+import 'share_record_button.dart';
 
 /// 身份卡（对应 Web 端 `.acc-panel--hero`）。
 class AccountHero extends StatefulWidget {
@@ -234,6 +235,12 @@ class _AccountHeroState extends State<AccountHero> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+
+          // ---------- 分享累计战绩 ----------
+          // 分享的就是上面那三张卡的数字（服务端从库里读，防伪造），
+          // 所以放在这里而不是对局结算页。
+          const ShareRecordButton(),
           const SizedBox(height: 16),
 
           // ---------- 页脚动作 ----------

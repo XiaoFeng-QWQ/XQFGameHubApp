@@ -93,8 +93,7 @@ Hero 的「文案 / 手绘」由左右分栏改为上下堆叠），但配色、
   **门槛是「开局满 10 秒」且「自己发过 ≥1 条消息」**，未满足时按钮置灰并说明原因。
 - **结果**：胜负结论 + 揭示 + 六项数据（你的判断 / 对方身份 / 对方标签 /
   对方猜你是 / 对话条数 / 用时），可折叠的「更多操作」里有
-  **导出为图片**、**保存聊天记录**、**分享战绩到聊天室**、**给对方留言**，
-  以及「再来一局」。导出走 `RepaintBoundary.toImage` → PNG → 系统分享面板
+  **导出为图片**、**保存聊天记录**、**给对方留言**，以及「再来一局」。导出走 `RepaintBoundary.toImage` → PNG → 系统分享面板
   （Web 端用 html2canvas，这里不需要重画也不需要 WebView）。
 
 几条实现上值得留意的规则（都在 `TuringClient` 里，有单测锁住）：
@@ -153,6 +152,10 @@ Hero 的「文案 / 手绘」由左右分栏改为上下堆叠），但配色、
 
 **已登录**
 
+- **分享战绩到聊天室**：`share_record`（WS）。⚠️ 分享的是**账号累计战绩**
+  （总场次 / 胜 / 负 / 胜率），服务端从库里读 `getRecordStats()` 生成卡片防伪造 ——
+  所以入口在身份卡的数据卡下方，**不在对局结算页**（放那儿会让人以为是分享本局）。
+  账号页的连接没绑定过对局，必须显式带 `player_token`。
 - **身份卡**：头像（点击从相册选择并上传，`POST /api/account/avatar`，≤ 2MB）、
   昵称 + `#编号`、佩戴标签（普通 + 特殊）、编号 / 注册时间 / 最近对局、
   总对局 / 胜率 / 场均发言三连数据卡、公开主页 / 全服周报 / 修改昵称入口。
@@ -370,7 +373,8 @@ tools/build_android.sh debug
 | 在线人数 / 公告 / 对局 | `wss://game.xfcode.top/ws`（`online_count` / `broadcast` / `ping`） |
 | 图灵测试 · 开局 | `join`（`nickname` / `duration` 300\|600 / `fingerprint` / `player_token`） |
 | 图灵测试 · 对局 | `message` / `sticker` / `judge`（`guess` + `tag`）/ `report` / `leave` |
-| 图灵测试 · 结束 | `save_history` / `leave_message` / `share_record` |
+| 图灵测试 · 结束 | `save_history` / `leave_message` |
+| 分享累计战绩 | `share_record`（WS，需 `player_token`；服务端读库生成卡片） |
 | 图灵测试 · 下发 | `matched` / `message` / `system` / `judge_notify` / `judged` / `timeout` / `sticker` / `save_history_status` / `leave_message_status` / `share_record_status` |
 
 后端约定「失败也返回 HTTP 200 + `{"error": "..."}`」，`ApiClient` 会统一转成
