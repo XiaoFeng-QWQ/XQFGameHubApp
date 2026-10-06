@@ -37,6 +37,14 @@ class AppIcons {
       '<path d="M12 8c0-1.5 1-2 1-3.5"/><path d="M16 8c0-1.5 1-2 1-3.5"/>';
   static const String chat =
       '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>';
+  /// 表情按钮（图灵测试输入区）。
+  ///
+  /// 路径原样取自 Web 端 `turing/index.html` 里 `#btn-sticker-picker` 的内联
+  /// SVG（圆角方框 + 两只眼睛 + 笑嘴），不是 `chat` 那个对话气泡。
+  static const String sticker =
+      '<rect x="3" y="3" width="18" height="18" rx="3"/>'
+      '<circle cx="8.5" cy="8.5" r="1.5"/><circle cx="15.5" cy="8.5" r="1.5"/>'
+      '<path d="M8 14c0 0 1.5 2 4 2s4-2 4-2"/>';
   static const String cards =
       '<rect x="3" y="5" width="12" height="16" rx="2"/><path d="M8 5V3h11a2 2 0 0 1 2 2v13h-2"/>';
   static const String bolt = '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>';
@@ -154,6 +162,7 @@ class AppIcons {
     'arrow-left': arrowLeft,
     'soup': soup,
     'chat': chat,
+    'sticker': sticker,
     'cards': cards,
     'bolt': bolt,
     'gomoku': gomoku,

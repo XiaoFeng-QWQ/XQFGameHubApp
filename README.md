@@ -392,17 +392,18 @@ tools/build_android.sh debug
 flutter test
 ```
 
-共 53 个用例，全部通过：
+共 55 个用例，全部通过：
 
 - `test/unit_test.dart` —— `XqfTime` 时间解析 / 格式化、`XqfPalette` 与 CSS 变量
   一致性、`XqfRadii` 与 `border-radius` 简写的对应关系、`parseApiError` 的
   两套结果约定（`error` / `success:false`）、`MyTags` 解析、`ChatHistoryItem` 标签映射。
 - `test/widget_test.dart` —— Widget 冒烟测试：设计系统组件（面板 / 按钮 / 标签 /
-  印章 / 点阵纸 / 横格纸 / 虚线）、**全部 47 个线性图标的 SVG 解析**、玩法卡、
+  印章 / 点阵纸 / 横格纸 / 虚线）、**全部 52 个线性图标的 SVG 解析**、玩法卡、
   账号中心未登录视图（含登录卡的 tab 切换）、身份卡；以及 App 外壳
   （竖屏底部导航 / 宽屏侧栏）、玩法页、关于页（含「赞助支持」走弹窗而非外链、
   客户端信息里的开发协助模型）、折叠分组、「我的」页未登录时的外观三态切换、
-  图灵测试落地页（未登录引导 / 已登录开局），
+  图灵测试落地页（未登录引导 / 已登录开局）、图灵测试退出路径
+  （对局中确认后能真的退出、结果页直接退出），
   验证渲染不抛异常且关键文案与结构存在。
 - `test/turing_test.dart` —— **图灵测试对局状态机**（不连服务端，
   用 `HubSocket.debugEmit` 把服务端消息喂进解析链路）：判定门槛

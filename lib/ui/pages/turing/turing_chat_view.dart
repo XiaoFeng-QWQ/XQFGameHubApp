@@ -301,7 +301,7 @@ class _InputBar extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(2),
                   child: AppIcon(
-                    'chat',
+                    'sticker',
                     size: 18,
                     color: enabled ? p.inkBlue : p.textAa,
                   ),

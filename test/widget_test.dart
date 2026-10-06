@@ -12,6 +12,8 @@ import 'package:xqf_game_hub/core/storage/app_prefs.dart';
 import 'package:xqf_game_hub/core/theme/app_theme.dart';
 import 'package:xqf_game_hub/data/models/account.dart';
 import 'package:xqf_game_hub/data/hub_socket.dart';
+import 'package:xqf_game_hub/data/models/turing.dart';
+import 'package:xqf_game_hub/data/turing/turing_client.dart';
 import 'package:xqf_game_hub/state/app_state.dart';
 import 'package:xqf_game_hub/ui/pages/about_page.dart';
 import 'package:xqf_game_hub/ui/pages/account/account_guest.dart';
@@ -258,6 +260,103 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('正在为你寻找对手…'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  /// 造一个「已结束」的对局客户端（ticker 已取消，不会残留 pending timer），
+  /// 并把它推到一个真实 Navigator 上，用于验证退出路径。
+  Future<({TuringClient client, GlobalKey<NavigatorState> navKey})> pumpTuringOnNav(
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final AppPrefs prefs = await AppPrefs.init();
+    final AppServices services = AppServices(prefs);
+    final AuthController auth = AuthController(prefs)..restore();
+    final ThemeController theme = ThemeController(prefs);
+    final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
+
+    await tester.pumpWidget(AppScope(
+      services: services,
+      auth: auth,
+      theme: theme,
+      child: MaterialApp(
+        navigatorKey: navKey,
+        theme: XqfTheme.light(),
+        home: const Scaffold(body: Center(child: Text('占位首页'))),
+      ),
+    ));
+
+    final TuringClient client = TuringClient(services.hub);
+    client.start(
+      nickname: '测试者',
+      playerToken: 'tk',
+      fingerprint: 'fp',
+      durationSeconds: 300,
+    );
+    // 注意：不能用 pumpEventQueue() —— 它内部是零延迟 Timer，
+    // 在 testWidgets 的 fake clock 下不会自己触发，会直接把测试挂住。
+    // tester.pump() 会 flush microtask，广播流才会把消息派发给客户端。
+    services.hub.debugEmit(<String, dynamic>{
+      'type': 'matched',
+      'opponent_name': '对手甲',
+      'session_id': 's1',
+      'duration': 300,
+    });
+    await tester.pump();
+    services.hub.debugEmit(<String, dynamic>{
+      'type': 'timeout',
+      'reason': 'opponent_timeout',
+      'opponent_truth': 'ai',
+      'session_id': 's1',
+    });
+    await tester.pump();
+    expect(client.phase, TuringPhase.finished);
+
+    navKey.currentState!.push(MaterialPageRoute<void>(
+      builder: (_) => TuringPage(onRequireLogin: () {}, client: client),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    return (client: client, navKey: navKey);
+  }
+
+  testWidgets('对局中退出能真的退出，不会卡死', (WidgetTester tester) async {
+    // 回归：旧实现收尾用 Navigator.maybePop()，而 PopScope.canPop 依赖 phase，
+    // reset() 只是把重建排进队列 —— maybePop 仍读到 canPop:false，
+    // 判定 doNotPop → 回调 onPopInvokedWithResult(false) → 又回到 _handleBack
+    // → 同步无限递归，主线程卡死（表现为「应用未响应」）。
+    final ({TuringClient client, GlobalKey<NavigatorState> navKey}) t =
+        await pumpTuringOnNav(tester);
+    expect(find.text('再来一局'), findsOneWidget);
+
+    // 页头返回 → 二次确认 → 确认后必须真的退出
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('离开对局'), findsOneWidget);
+
+    await tester.tap(find.text('离开'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('占位首页'), findsOneWidget);
+    expect(find.text('再来一局'), findsNothing);
+
+    t.client.dispose();
+  });
+
+  testWidgets('结果页「返回游戏中心」直接退出，不再二次确认', (WidgetTester tester) async {
+    final ({TuringClient client, GlobalKey<NavigatorState> navKey}) t =
+        await pumpTuringOnNav(tester);
+
+    await tester.tap(find.text('返回游戏中心'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // 对局已结束，不应弹确认框
+    expect(find.text('离开对局'), findsNothing);
+    expect(find.text('占位首页'), findsOneWidget);
+
+    t.client.dispose();
   });
 
   testWidgets('竖屏用底部导航：三个页签 + 切换', (WidgetTester tester) async {
