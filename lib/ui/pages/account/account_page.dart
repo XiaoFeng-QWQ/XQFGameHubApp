@@ -13,6 +13,7 @@ import '../../widgets/toast.dart';
 import '../about_page.dart';
 import 'account_guest.dart';
 import 'account_hero.dart';
+import 'appearance_panel.dart';
 import 'panels/bindings_panel.dart';
 import 'panels/email_panel.dart';
 import 'panels/history_panel.dart';
@@ -24,18 +25,14 @@ import 'panels/tags_panel.dart';
 /// 「我的」页（对应 Web 端 `GET /account`）。
 ///
 /// 结构：页头 → [加载中] / [未登录：邮箱登录 + 找回账号] /
-/// [已登录：身份卡 + 内容管理组 + 账号设置组 + 关于入口]。
+/// [已登录：身份卡 + 内容管理组 + 账号设置组] → 外观 + 关于入口。
 /// 手机端把 7 个面板收进两个**默认折叠**的分组，避免一屏滚到底；
 /// 宽屏（横屏 / 平板）自动变两栏。
+///
+/// 「外观」与「关于」刻意放在分组之外：主题是设备级偏好，
+/// 未登录时也要能改。
 class AccountPage extends StatefulWidget {
-  const AccountPage({
-    super.key,
-    required this.onToggleTheme,
-    required this.isDark,
-  });
-
-  final VoidCallback onToggleTheme;
-  final bool isDark;
+  const AccountPage({super.key});
 
   @override
   State<AccountPage> createState() => _AccountPageState();
@@ -120,16 +117,7 @@ class _AccountPageState extends State<AccountPage> {
 
     return Column(
       children: <Widget>[
-        AppHeader(
-          title: '我的账号',
-          actions: <Widget>[
-            HeaderIconButton(
-              icon: widget.isDark ? 'sun' : 'moon',
-              tooltip: '主题切换',
-              onPressed: widget.onToggleTheme,
-            ),
-          ],
-        ),
+        AppHeader(title: '我的账号'),
         Expanded(
           child: ListenableBuilder(
             listenable: scope.auth,
@@ -197,6 +185,8 @@ class _AccountPageState extends State<AccountPage> {
                           ),
                         ],
                         const SizedBox(height: 28),
+                        const AppearancePanel(),
+                        const SizedBox(height: 22),
                         const _AboutEntry(),
                       ],
                     ),

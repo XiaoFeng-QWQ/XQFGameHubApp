@@ -24,10 +24,7 @@ Future<void> openGame(BuildContext context, GameEntry entry) async {
 
 /// 玩法页：全部玩法 + 分类筛选。
 class GamesPage extends StatefulWidget {
-  const GamesPage({super.key, required this.onToggleTheme, required this.isDark});
-
-  final VoidCallback onToggleTheme;
-  final bool isDark;
+  const GamesPage({super.key});
 
   @override
   State<GamesPage> createState() => _GamesPageState();
@@ -43,16 +40,7 @@ class _GamesPageState extends State<GamesPage> {
 
     return Column(
       children: <Widget>[
-        AppHeader(
-          title: '玩法',
-          actions: <Widget>[
-            HeaderIconButton(
-              icon: widget.isDark ? 'sun' : 'moon',
-              tooltip: '主题切换',
-              onPressed: widget.onToggleTheme,
-            ),
-          ],
-        ),
+        AppHeader(title: '玩法'),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
@@ -73,7 +61,7 @@ class _GamesPageState extends State<GamesPage> {
                       spacing: 8,
                       runSpacing: 8,
                       children: GameCatalog.filters.map((List<String> f) {
-                        return _FilterChip(
+                        return DoodleChoiceChip(
                           label: f[1],
                           active: f[0] == _group,
                           onTap: () => setState(() => _group = f[0]),
@@ -161,43 +149,4 @@ class GameGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       _GameGrid(games: games, onTap: onTap, extent: mainAxisExtent);
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final XqfPalette p = XqfPalette.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? p.noteYellow : p.surfaceWhite,
-          border: Border.all(color: p.inkBlack, width: 2),
-          borderRadius: XqfRadii.chip,
-          boxShadow: active ? XqfShadows.chip(p) : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 12,
-            color: p.inkBlack,
-          ),
-        ),
-      ),
-    );
-  }
 }

@@ -287,6 +287,55 @@ class DoodleTag extends StatelessWidget {
   }
 }
 
+/// 手绘选择胶囊（对应 Web 端 `.hub-filter`）。
+///
+/// 玩法页的分类筛选与「我的 → 外观」的主题选择共用同一形态：
+/// 选中态为便签黄底 + 2px 墨色描边 + 错位实心阴影，未选中为白底、无阴影。
+class DoodleChoiceChip extends StatelessWidget {
+  const DoodleChoiceChip({
+    super.key,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final XqfPalette p = XqfPalette.of(context);
+    return Semantics(
+      selected: active,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? p.noteYellow : p.surfaceWhite,
+            border: Border.all(color: p.inkBlack, width: 2),
+            borderRadius: XqfRadii.chip,
+            boxShadow: active ? XqfShadows.chip(p) : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: p.inkBlack,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 印章（Web 端 `.hub-stamp`：旋转 -6°、2px 描边、字距 2px）。
 class DoodleStamp extends StatelessWidget {
   const DoodleStamp({

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/palette.dart';
-import '../../state/app_state.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/breakpoints.dart';
 import '../widgets/bottom_nav.dart';
@@ -44,71 +43,62 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final XqfPalette p = XqfPalette.of(context);
-    final ThemeController theme = AppScope.of(context).theme;
 
-    return ListenableBuilder(
-      listenable: theme,
-      builder: (BuildContext context, _) {
-        final bool isDark = Theme.of(context).brightness == Brightness.dark;
-        void toggleTheme() => theme.toggle(Theme.of(context).brightness);
+    final List<Widget> pages = <Widget>[
+      HomePage(onOpenGames: () => _select(1)),
+      const GamesPage(),
+      const AccountPage(),
+    ];
 
-        final List<Widget> pages = <Widget>[
-          HomePage(onOpenGames: () => _select(1), onToggleTheme: toggleTheme, isDark: isDark),
-          GamesPage(onToggleTheme: toggleTheme, isDark: isDark),
-          AccountPage(onToggleTheme: toggleTheme, isDark: isDark),
-        ];
-
-        return PopScope(
-          // 不在首页时，返回键先回到首页，而不是直接退出 App
-          canPop: _index == 0,
-          onPopInvokedWithResult: (bool didPop, Object? _) {
-            if (!didPop) _select(0);
-          },
-          child: Scaffold(
-            backgroundColor: p.paperBg,
-            body: DotGridBackground(
-              child: LayoutBuilder(
-                builder: (BuildContext context, BoxConstraints c) {
-                  final Widget stack = IndexedStack(
-                    index: _index,
-                    children: List<Widget>.generate(
-                      pages.length,
-                      (int i) => _visited.contains(i)
-                          ? pages[i]
-                          : const SizedBox.shrink(),
-                    ),
-                  );
-
-                  if (XqfBreakpoints.useRail(c.maxWidth)) {
-                    return Row(
-                      children: <Widget>[
-                        XqfNavRail(
-                          items: _items,
-                          index: _index,
-                          onChanged: _select,
-                          header: AppIcon('grid', size: 26, color: p.inkBlue),
-                        ),
-                        Expanded(child: stack),
-                      ],
-                    );
-                  }
-
-                  return Column(
-                    children: <Widget>[
-                      Expanded(child: stack),
-                      XqfBottomBar(
-                        items: _items,
-                        index: _index,
-                        onChanged: _select,
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-        );
+    return PopScope(
+      // 不在首页时，返回键先回到首页，而不是直接退出 App
+      canPop: _index == 0,
+      onPopInvokedWithResult: (bool didPop, Object? _) {
+        if (!didPop) _select(0);
       },
+      child: Scaffold(
+        backgroundColor: p.paperBg,
+        body: DotGridBackground(
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints c) {
+              final Widget stack = IndexedStack(
+                index: _index,
+                children: List<Widget>.generate(
+                  pages.length,
+                  (int i) => _visited.contains(i)
+                      ? pages[i]
+                      : const SizedBox.shrink(),
+                ),
+              );
+
+              if (XqfBreakpoints.useRail(c.maxWidth)) {
+                return Row(
+                  children: <Widget>[
+                    XqfNavRail(
+                      items: _items,
+                      index: _index,
+                      onChanged: _select,
+                      header: AppIcon('grid', size: 26, color: p.inkBlue),
+                    ),
+                    Expanded(child: stack),
+                  ],
+                );
+              }
+
+              return Column(
+                children: <Widget>[
+                  Expanded(child: stack),
+                  XqfBottomBar(
+                    items: _items,
+                    index: _index,
+                    onChanged: _select,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }

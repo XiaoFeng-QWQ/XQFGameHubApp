@@ -16,6 +16,7 @@ import 'package:xqf_game_hub/state/app_state.dart';
 import 'package:xqf_game_hub/ui/pages/about_page.dart';
 import 'package:xqf_game_hub/ui/pages/account/account_guest.dart';
 import 'package:xqf_game_hub/ui/pages/account/account_hero.dart';
+import 'package:xqf_game_hub/ui/pages/account/account_page.dart';
 import 'package:xqf_game_hub/ui/widgets/app_icon.dart';
 import 'package:xqf_game_hub/ui/widgets/doodle.dart';
 import 'package:xqf_game_hub/ui/pages/app_shell.dart';
@@ -155,6 +156,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('未登录时「我的」页也能切换外观（三态）', (WidgetTester tester) async {
+    final AppScope scope = await _scope(
+      const Scaffold(body: AccountPage()),
+      bare: true,
+    );
+    await tester.pumpWidget(scope);
+    await tester.pumpAndSettle();
+
+    // 主题是设备级偏好：未登录（测试里没有会话）也必须看得到
+    expect(find.text('外观'), findsOneWidget);
+    expect(find.text('跟随系统'), findsOneWidget);
+    expect(find.text('亮色'), findsOneWidget);
+    expect(find.text('暗色'), findsOneWidget);
+    expect(scope.theme.mode, ThemeMode.system);
+
+    // 页面比测试画布长，先把该行滚进视口再点
+    await tester.ensureVisible(find.text('暗色'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('暗色'));
+    await tester.pumpAndSettle();
+    expect(scope.theme.mode, ThemeMode.dark);
+
+    await tester.tap(find.text('亮色'));
+    await tester.pumpAndSettle();
+    expect(scope.theme.mode, ThemeMode.light);
+
+    // 回归：点过之后仍能回到「跟随系统」——旧版页头按钮做不到这一点
+    await tester.tap(find.text('跟随系统'));
+    await tester.pumpAndSettle();
+    expect(scope.theme.mode, ThemeMode.system);
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('竖屏用底部导航：三个页签 + 切换', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(400, 860);
     tester.view.devicePixelRatio = 1.0;
@@ -208,7 +244,7 @@ void main() {
 
   testWidgets('玩法页展示全部玩法与筛选', (WidgetTester tester) async {
     await tester.pumpWidget(await _scope(
-      Scaffold(body: GamesPage(onToggleTheme: () {}, isDark: false)),
+      Scaffold(body: const GamesPage()),
       bare: true,
     ));
     await tester.pumpAndSettle();

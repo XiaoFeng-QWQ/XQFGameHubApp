@@ -225,6 +225,8 @@ showInAppImage(context, url: '...', title: '...'); // lib/ui/widgets/image_viewe
 
 - 手机上**一屏滚不到底的页面要分组折叠**。账号页 7 个面板收进
   「内容管理」「账号设置」两组，**默认收起**
+- 但**设备级偏好不进折叠分组**：「外观」（主题）与「关于」入口放在分组之外，
+  保证未登录时也看得到 —— 折叠分组只在登录后才渲染
 - 页头固定不滚（`Column[AppHeader, Expanded(scroll)]`），内容区滚动
 - 网页式元素（备案号、协议入口、版权）**不进主滚动流**，收进「关于」页
 
@@ -300,6 +302,29 @@ try {
 | 大标题 | 22 | 面板主标题 |
 | 品牌 | 26–42 | Hero 大字（按屏宽缩放） |
 
+### 2.8 外观与主题
+
+主题切换**不在页头**，统一收在「我的 → 外观」面板（`AppearancePanel`）。
+
+| 项 | 约定 |
+| --- | --- |
+| 位置 | 「我的」页，「内容管理 / 账号设置」折叠分组**之外**，与「关于」入口并列 |
+| 为什么在外面 | 主题是**设备级偏好**，不是账号偏好；分组只在登录后渲染，放进去未登录就找不到 |
+| 三态 | 跟随系统 / 亮色 / 暗色（`ThemeMode.system` 必须可达） |
+| 控件 | `DoodleChoiceChip`（与玩法页分类筛选同一形态），**纯文字，不用图标** |
+| 持久化 | `ThemeController` → `AppPrefs`，仅本机 |
+
+两条容易踩的：
+
+1. **不要退回二态翻转。** `ThemeController` 一直支持 `ThemeMode.system`，
+   但早期页头那颗按钮只写 `light` / `dark`，导致「跟随系统」一旦离开就回不去。
+2. **不要在页头重新加按钮。** 那会让 `AppShell` 重新把 `onToggleTheme` /
+   `isDark` 下发给每个页面（曾经 3 个页面、6 个构造参数只为了一颗按钮），
+   而且每个页签都要重复渲染同一个控件。
+
+> `AppearancePanel` 内部用 `ListenableBuilder` 显式监听 `ThemeController`：
+> `AppScope` 只在实例变化时通知，主题模式切换不会触发它。
+
 ---
 
 ## 3. 未定项（真正的空白，别假装有规范）
@@ -324,7 +349,7 @@ try {
 - [ ] 是页签还是一级页面？页签 → 加进 `AppShell._items`；二级 → `Navigator.push`
 - [ ] 页头用 `AppHeader`，固定不滚
 - [ ] 内容区包 `SingleChildScrollView` + `Center` + `ConstrainedBox(maxWidth: XqfBreakpoints.contentMaxWidth(...))`
-- [ ] 需要主题按钮时接 `onToggleTheme` / `isDark`（由 `AppShell` 下发）
+- [ ] **不要在页头加主题切换按钮**：主题统一在「我的 → 外观」面板，三态切换，见 2.8
 - [ ] 长页面考虑分组折叠
 
 **视觉**

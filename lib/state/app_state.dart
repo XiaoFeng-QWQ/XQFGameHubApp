@@ -119,13 +119,6 @@ class ThemeController extends ChangeNotifier {
     notifyListeners();
     await _prefs.setThemeMode(_raw(mode));
   }
-
-  /// 在亮 / 暗之间切换（系统模式下按当前实际亮度取反）。
-  Future<void> toggle(Brightness current) async {
-    final bool isDark = _mode == ThemeMode.dark ||
-        (_mode == ThemeMode.system && current == Brightness.dark);
-    await setMode(isDark ? ThemeMode.light : ThemeMode.dark);
-  }
 }
 
 /// 把服务与控制器注入 widget 树。

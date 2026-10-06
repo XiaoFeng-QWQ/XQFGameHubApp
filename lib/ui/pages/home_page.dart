@@ -23,17 +23,10 @@ import 'games_page.dart';
 /// 走马灯压成一行、Hero 缩小、手绘游戏机仅在宽屏出现、玩法卡片提到主推之后，
 /// 网页式页脚已移出主滚动流（改到「关于」页）。
 class HomePage extends StatefulWidget {
-  const HomePage({
-    super.key,
-    required this.onOpenGames,
-    required this.onToggleTheme,
-    required this.isDark,
-  });
+  const HomePage({super.key, required this.onOpenGames});
 
   /// 跳到「玩法」页签。
   final VoidCallback onOpenGames;
-  final VoidCallback onToggleTheme;
-  final bool isDark;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -66,16 +59,7 @@ class _HomePageState extends State<HomePage> {
 
     return Column(
       children: <Widget>[
-        AppHeader(
-          title: XqfEnv.appName,
-          actions: <Widget>[
-            HeaderIconButton(
-              icon: widget.isDark ? 'sun' : 'moon',
-              tooltip: '主题切换',
-              onPressed: widget.onToggleTheme,
-            ),
-          ],
-        ),
+        AppHeader(title: XqfEnv.appName),
         Expanded(
           child: LayoutBuilder(
             builder: (BuildContext context, BoxConstraints c) {
