@@ -94,6 +94,7 @@ Hero 的「文案 / 手绘」由左右分栏改为上下堆叠），但配色、
 - 服务端 `timeout.reason` 有 7 种，且 `you_timeout` / `both_timeout` 要先收敛成
   `you` / `both` 才对应得上结果文案（不收敛会把平局显示成「猜错了」）。
 - 断线时覆盖一层重连提示，恢复后自动消失；重连会带 `reconnect_session_id` 恢复对局。
+- 被封禁（`error` 文案含「封禁」且非「无需封禁」）→ 回到落地页、置灰开局按钮并显示横幅。
 
 > ⚠️ **对局必须复用全局唯一的那条 WS 连接。**
 > 服务端 `BaseGameHandler::onOpen` 做了 IP 去重（last-wins，跨 `/ws`、`/ws/lobby`、
@@ -391,7 +392,7 @@ tools/build_android.sh debug
 flutter test
 ```
 
-共 49 个用例，全部通过：
+共 53 个用例，全部通过：
 
 - `test/unit_test.dart` —— `XqfTime` 时间解析 / 格式化、`XqfPalette` 与 CSS 变量
   一致性、`XqfRadii` 与 `border-radius` 简写的对应关系、`parseApiError` 的
@@ -407,7 +408,8 @@ flutter test
   用 `HubSocket.debugEmit` 把服务端消息喂进解析链路）：判定门槛
   （开局 10 秒 + 自己发过消息）、对方已判定解锁、双方判定后的对错结论、
   聊天时间到只收口输入不产生结果、6 种结束原因的结果文案、
-  对手消息入流、未开局时忽略幽灵消息、reset 清空状态。
+  对手消息入流、未开局时忽略幽灵消息、reset 清空状态、
+  封禁（含「无需封禁」不误判）与举报回执。
 
 需要真实后端的页面级测试留待集成测试。
 

@@ -9,7 +9,6 @@ import '../../widgets/app_icon.dart';
 import '../../widgets/doodle.dart';
 import '../../widgets/doodle_field.dart';
 import '../../widgets/paper.dart';
-import '../../widgets/toast.dart';
 import '../../widgets/turing/turing_bubble.dart';
 import '../../widgets/turing/turing_sticker_sheet.dart';
 
@@ -64,8 +63,8 @@ class _TuringChatViewState extends State<TuringChatView> {
       builder: (BuildContext ctx) => _ReportSheet(),
     );
     if (reason == null || !mounted) return;
+    // 回执由服务端 report_result 给出，外层统一弹提示
     widget.client.report(reason);
-    showTopToast(context, '举报已提交');
   }
 
   void _scrollToBottomSoon() {

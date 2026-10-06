@@ -252,4 +252,69 @@ void main() {
     expect(t.client.result, isNull);
     expect(t.client.myMessageCount, 0);
   });
+
+  group('封禁与错误', () {
+    test('错误里含「封禁」→ 回到落地页且不能再开局', () async {
+      final ({HubSocket hub, TuringClient client}) t = await started();
+      addTearDown(t.client.dispose);
+
+      await emit(t.hub, <String, dynamic>{
+        'type': 'error',
+        'message': '您已被管理员封禁',
+      });
+
+      expect(t.client.banned, isTrue);
+      expect(t.client.phase, TuringPhase.landing);
+
+      // 再点开始匹配应当无效（停在落地页）
+      t.client.start(
+        nickname: 'x',
+        playerToken: 't',
+        fingerprint: 'f',
+        durationSeconds: 300,
+      );
+      expect(t.client.phase, TuringPhase.landing);
+    });
+
+    test('「无需封禁」不算封禁', () async {
+      final ({HubSocket hub, TuringClient client}) t = await started();
+      addTearDown(t.client.dispose);
+
+      await emit(t.hub, <String, dynamic>{
+        'type': 'error',
+        'message': '该玩家无需封禁',
+      });
+      expect(t.client.banned, isFalse);
+    });
+
+    test('普通错误只记 lastError，不影响对局', () async {
+      final ({HubSocket hub, TuringClient client}) t = await started();
+      addTearDown(t.client.dispose);
+
+      await emit(t.hub, <String, dynamic>{
+        'type': 'error',
+        'message': '服务器繁忙，请稍后再试',
+      });
+
+      expect(t.client.banned, isFalse);
+      expect(t.client.lastError, '服务器繁忙，请稍后再试');
+      expect(t.client.phase, TuringPhase.chatting);
+    });
+
+    test('举报回执写入 reportResult', () async {
+      final ({HubSocket hub, TuringClient client}) t = await started();
+      addTearDown(t.client.dispose);
+
+      await emit(t.hub, <String, dynamic>{
+        'type': 'report_result',
+        'success': true,
+        'message': '举报已提交',
+      });
+
+      expect(t.client.reportResult, '举报已提交');
+      expect(t.client.reportOk, isTrue);
+      t.client.clearReportResult();
+      expect(t.client.reportResult, isNull);
+    });
+  });
 }

@@ -52,50 +52,16 @@ class _TuringLandingViewState extends State<TuringLandingView> {
             children: <Widget>[
               const _Hero(),
               const SizedBox(height: 20),
+              if (widget.client.banned) ...<Widget>[
+                _BanBanner(message: widget.client.bannedMessage),
+                const SizedBox(height: 16),
+              ],
               DoodlePanel(
                 tone: NoteTone.yellow,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    if (loggedIn) ...<Widget>[
-                      _OnlineLine(count: widget.client.onlineCount),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: <Widget>[
-                          Text(
-                            '聊多久',
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 13,
-                              color: p.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          for (final (int value, String label) in _durations) ...<Widget>[
-                            DoodleChoiceChip(
-                              label: label,
-                              active: _duration == value,
-                              onTap: () => setState(() => _duration = value),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      DoodleButton(
-                        expand: true,
-                        icon: 'bolt',
-                        fontSize: 15,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        onPressed: () => widget.client.start(
-                          nickname: scope.auth.nickname ?? '玩家',
-                          playerToken: scope.auth.token ?? '',
-                          fingerprint: scope.auth.fingerprint,
-                          durationSeconds: _duration,
-                        ),
-                        child: const Text('马上开始匹配'),
-                      ),
-                    ] else ...<Widget>[
+                    if (!loggedIn) ...<Widget>[
                       Row(
                         children: <Widget>[
                           AppIcon('lock', size: 18, color: p.danger),
@@ -133,6 +99,46 @@ class _TuringLandingViewState extends State<TuringLandingView> {
                         onPressed: widget.onRequireLogin,
                         child: const Text('去「我的」登录'),
                       ),
+                    ] else ...<Widget>[
+                      _OnlineLine(count: widget.client.onlineCount),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: <Widget>[
+                          Text(
+                            '聊多久',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 13,
+                              color: p.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          for (final (int value, String label) in _durations) ...<Widget>[
+                            DoodleChoiceChip(
+                              label: label,
+                              active: _duration == value,
+                              onTap: () => setState(() => _duration = value),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      DoodleButton(
+                        expand: true,
+                        icon: 'bolt',
+                        fontSize: 15,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        onPressed: widget.client.banned
+                            ? null
+                            : () => widget.client.start(
+                                  nickname: scope.auth.nickname ?? '玩家',
+                                  playerToken: scope.auth.token ?? '',
+                                  fingerprint: scope.auth.fingerprint,
+                                  durationSeconds: _duration,
+                                ),
+                        child: Text(widget.client.banned ? '已被封禁' : '马上开始匹配'),
+                      ),
                     ],
                   ],
                 ),
@@ -140,6 +146,44 @@ class _TuringLandingViewState extends State<TuringLandingView> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 封禁横幅。
+class _BanBanner extends StatelessWidget {
+  const _BanBanner({required this.message});
+
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    final XqfPalette p = XqfPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: p.dangerLight,
+        border: Border.all(color: p.danger, width: 2),
+        borderRadius: XqfRadii.panel,
+      ),
+      child: Row(
+        children: <Widget>[
+          AppIcon('alert', size: 18, color: p.dangerDark),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message ?? '你已被管理员封禁',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 13,
+                height: 1.5,
+                fontWeight: FontWeight.bold,
+                color: p.dangerDark,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

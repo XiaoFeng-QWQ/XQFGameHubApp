@@ -40,13 +40,25 @@ class _TuringPageState extends State<TuringPage> {
     _client = c;
   }
 
-  /// 「分享战绩」的结果由服务端异步返回，这里弹提示并清空。
+  /// 分享 / 举报 / 错误都由服务端异步回执，这里弹提示并清空。
   void _onClientUpdate(TuringClient c) {
-    final String? msg = c.shareRecordMessage;
-    if (msg == null) return;
+    final String? share = c.shareRecordMessage;
+    final String? report = c.reportResult;
+    final String? error = c.lastError;
+    if (share == null && report == null && error == null) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      showTopToast(context, msg, isError: !c.shareRecordOk);
+      // 一次只弹一条，错误优先
+      if (error != null) {
+        showTopToast(context, error, isError: true);
+      } else if (report != null) {
+        showTopToast(context, report, isError: !c.reportOk);
+      } else if (share != null) {
+        showTopToast(context, share, isError: !c.shareRecordOk);
+      }
+      c.clearError();
+      c.clearReportResult();
       c.clearShareRecordMessage();
     });
   }

@@ -63,6 +63,11 @@ class TuringClient extends ChangeNotifier {
   String? _leaveMessageStatus;
   String? _shareRecordMessage;
   bool _shareRecordOk = false;
+  String? _reportResult;
+  bool _reportOk = false;
+  bool _banned = false;
+  String? _bannedMessage;
+  String? _lastError;
 
   // ---- 只读状态 ----
 
@@ -95,6 +100,29 @@ class TuringClient extends ChangeNotifier {
   void clearShareRecordMessage() {
     if (_shareRecordMessage == null) return;
     _shareRecordMessage = null;
+    notifyListeners();
+  }
+
+  /// 举报结果（服务端异步回执），供 UI 弹完提示后清空。
+  String? get reportResult => _reportResult;
+  bool get reportOk => _reportOk;
+
+  void clearReportResult() {
+    if (_reportResult == null) return;
+    _reportResult = null;
+    notifyListeners();
+  }
+
+  /// 已被封禁：封禁后不允许再开局（与 Web 端一致）。
+  bool get banned => _banned;
+  String? get bannedMessage => _bannedMessage;
+
+  /// 最近一条非封禁类错误，供 UI 弹提示后清空。
+  String? get lastError => _lastError;
+
+  void clearError() {
+    if (_lastError == null) return;
+    _lastError = null;
     notifyListeners();
   }
 
@@ -135,6 +163,7 @@ class TuringClient extends ChangeNotifier {
     required String fingerprint,
     required int durationSeconds,
   }) {
+    if (_banned) return;
     _nickname = nickname;
     _playerToken = playerToken;
     _fingerprint = fingerprint;
@@ -304,9 +333,45 @@ class TuringClient extends ChangeNotifier {
         _onLeaveMessageStatus(msg);
       case 'share_record_status':
         _onShareRecordStatus(msg);
+      case 'report_result':
+        _reportOk = msg['success'] == true;
+        _reportResult = '${msg['message'] ?? (_reportOk ? '举报已提交' : '举报失败')}';
+        notifyListeners();
+      case 'error':
+        _onError(msg);
+      case 'banned':
+        _onBanned('${msg['text'] ?? msg['message'] ?? ''}');
       default:
         break;
     }
+  }
+
+  /// 服务端错误。
+  ///
+  /// 封禁要单独处理（Web 端判断文案里是否含「封禁」，且排除「无需封禁」），
+  /// 否则玩家会在被封后继续尝试开局、每次都被拒。
+  void _onError(Map<String, dynamic> msg) {
+    final String text = '${msg['message'] ?? msg['text'] ?? ''}';
+    if (text.isEmpty) return;
+    if (text.contains('封禁') && !text.contains('无需封禁')) {
+      _onBanned(text);
+      return;
+    }
+    _lastError = text;
+    notifyListeners();
+  }
+
+  void _onBanned(String message) {
+    _banned = true;
+    _bannedMessage = message.isEmpty ? '你已被管理员封禁' : message;
+    _ticker?.cancel();
+    _ticker = null;
+    _unlockTimer?.cancel();
+    _unlockTimer = null;
+    _hub.leaveGame();
+    _resetGameState();
+    _phase = TuringPhase.landing;
+    notifyListeners();
   }
 
   void _onMatched(Map<String, dynamic> msg) {
