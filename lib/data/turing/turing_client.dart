@@ -93,6 +93,18 @@ class TuringClient extends ChangeNotifier {
   bool get sendingLeaveMessage => _sendingLeaveMessage;
   String? get leaveMessageStatus => _leaveMessageStatus;
 
+  /// 无限时长（`duration <= 0`）。
+  ///
+  /// 服务端 `GameTimers::startChatTimer` 对 `duration <= 0` 直接 return，
+  /// 不启动聊天定时器、也不会下发「聊天时间到」——由玩家手动判定结束。
+  /// 但**开局 60 秒的互发消息检查照常**（`startMutualChatCheck` 是无条件调用的）。
+  bool get unlimited => _duration <= 0;
+
+  /// 顶部计时器要显示的文案；无限时长显示 `∞`。
+  String get remainingLabel => unlimited && !_judgeWindow
+      ? '∞'
+      : formatClock(_remaining);
+
   /// 最近一次「分享战绩」的结果，供 UI 弹完提示后 [clearShareRecordMessage]。
   String? get shareRecordMessage => _shareRecordMessage;
   bool get shareRecordOk => _shareRecordOk;
@@ -231,8 +243,11 @@ class TuringClient extends ChangeNotifier {
     _judgeWindow = true;
     _phase = TuringPhase.waitingOpponent;
 
-    // 剩余时间收敛到判定窗口（不超过当前剩余）
-    _remaining = _remaining < judgeWindowSeconds ? _remaining : judgeWindowSeconds;
+    // 剩余时间收敛到判定窗口（不超过当前剩余）；
+    // 无限时长时 _remaining 是 0，要直接给满 60 秒，否则倒计时不动。
+    _remaining = unlimited
+        ? judgeWindowSeconds
+        : (_remaining < judgeWindowSeconds ? _remaining : judgeWindowSeconds);
     _append(TuringFeedItem.system('你已锁定判断，等待对方判定中…'));
     _startTicker();
 
@@ -391,7 +406,9 @@ class TuringClient extends ChangeNotifier {
     _judgeWindow = false;
     _chatExpired = false;
 
-    _startTicker();
+    // 无限时长没有聊天倒计时（服务端也不下发「聊天时间到」），
+    // 开 ticker 只会空转，这里就不开了；判定窗口由 judge() 再启动。
+    if (_duration > 0) _startTicker();
     _unlockTimer?.cancel();
     _unlockTimer = Timer(judgeUnlockDelay, () {
       _judgementAllowed = true;
@@ -613,4 +630,12 @@ class TuringClient extends ChangeNotifier {
     _sub?.cancel();
     super.dispose();
   }
+}
+
+/// 秒数 → `MM:SS`（负数归零）。
+String formatClock(int seconds) {
+  final int s = seconds < 0 ? 0 : seconds;
+  final String m = (s ~/ 60).toString().padLeft(2, '0');
+  final String sec = (s % 60).toString().padLeft(2, '0');
+  return '$m:$sec';
 }

@@ -10,9 +10,11 @@ import '../../widgets/paper.dart';
 /// 落地页：Hero + 时长选择 + 开始匹配。
 ///
 /// 与 Web 端 `#landing-page` 的差异：
-/// - Web 端还提供「无限」时长，但接口契约写的是 `duration(300/600)`，
-///   且 Web 自己的 `parseInt(v) || 600` 会把 `0` 变成 `600`（选项形同虚设），
-///   所以这里只给真正受支持的 5 / 10 分钟。
+/// - 时长同样提供「无限」（传 `duration: 0`）。服务端
+///   `GameTimers::startChatTimer` 对 `duration <= 0` 直接跳过聊天定时器，
+///   由玩家手动判定结束；开局 60 秒的互发消息检查照常生效。
+///   ⚠️ 服务端 `Game.AllowedDurations` 是白名单（`Config/App.php`），
+///   必须包含 `0`，否则 `join` 会被拒为「无效的聊天时长」。
 /// - 本 App 要求先登录才能开局，未登录时把开始按钮换成登录引导。
 class TuringLandingView extends StatefulWidget {
   const TuringLandingView({
@@ -29,9 +31,12 @@ class TuringLandingView extends StatefulWidget {
 }
 
 class _TuringLandingViewState extends State<TuringLandingView> {
+  /// 0 = 无限时长。服务端 `GameTimers::startChatTimer` 对 `duration <= 0`
+  /// 直接跳过聊天定时器，由玩家手动判定结束。
   static const List<(int, String)> _durations = <(int, String)>[
     (600, '10 分钟'),
     (300, '5 分钟'),
+    (0, '无限'),
   ];
 
   int _duration = 600;

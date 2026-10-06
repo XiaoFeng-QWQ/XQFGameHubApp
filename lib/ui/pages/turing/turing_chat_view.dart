@@ -200,7 +200,7 @@ class _OpponentStrip extends StatelessWidget {
               borderRadius: XqfRadii.tag,
             ),
             child: Text(
-              formatClock(client.remainingSeconds),
+              client.remainingLabel,
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 15,
@@ -494,12 +494,4 @@ class _ReportSheet extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 秒数 → `MM:SS`（负数归零）。
-String formatClock(int seconds) {
-  final int s = seconds < 0 ? 0 : seconds;
-  final String m = (s ~/ 60).toString().padLeft(2, '0');
-  final String sec = (s % 60).toString().padLeft(2, '0');
-  return '$m:$sec';
 }

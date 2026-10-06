@@ -317,4 +317,71 @@ void main() {
       expect(t.client.reportResult, isNull);
     });
   });
+
+  group('无限时长（duration = 0）', () {
+    /// 以 `duration: 0` 进入对局。
+    Future<({HubSocket hub, TuringClient client})> startedUnlimited() async {
+      final HubSocket hub = HubSocket();
+      final TuringClient client = TuringClient(hub);
+      client.start(
+        nickname: '测试者',
+        playerToken: 'tk_1',
+        fingerprint: 'fp_1',
+        durationSeconds: 0,
+      );
+      await emit(hub, <String, dynamic>{
+        'type': 'matched',
+        'opponent_name': '对手甲',
+        'session_id': 'sess_1',
+        'duration': 0,
+      });
+      return (hub: hub, client: client);
+    }
+
+    test('计时显示 ∞、不跑聊天倒计时、输入可用', () async {
+      final ({HubSocket hub, TuringClient client}) t = await startedUnlimited();
+      addTearDown(t.client.dispose);
+
+      expect(t.client.unlimited, isTrue);
+      expect(t.client.remainingLabel, '∞');
+      expect(t.client.remainingSeconds, 0);
+      // 不该被本地计时器判成「聊天时间到」
+      expect(t.client.chatExpired, isFalse);
+      expect(t.client.inputEnabled, isTrue);
+    });
+
+    test('判定后仍给满 60 秒判定窗口', () async {
+      final ({HubSocket hub, TuringClient client}) t = await startedUnlimited();
+      addTearDown(t.client.dispose);
+
+      await emit(t.hub, <String, dynamic>{
+        'type': 'judge_notify',
+        'message': '对方已作出判定',
+        'seconds_remaining': 60,
+      });
+      t.client.sendMessage('你好');
+      expect(t.client.canJudge, isTrue);
+
+      t.client.judge('ai');
+      expect(t.client.phase, TuringPhase.waitingOpponent);
+      // 无限时长下 _remaining 本来是 0，判定窗口必须直接给满
+      expect(t.client.remainingSeconds, 60);
+      expect(t.client.remainingLabel, '01:00');
+    });
+
+    test('服务端仍会做开局 60 秒互发消息检查（照常按平局处理）', () async {
+      final ({HubSocket hub, TuringClient client}) t = await startedUnlimited();
+      addTearDown(t.client.dispose);
+
+      await emit(t.hub, <String, dynamic>{
+        'type': 'timeout',
+        'reason': 'no_mutual_chat',
+        'opponent_truth': 'ai',
+        'session_id': 'sess_1',
+      });
+
+      expect(t.client.phase, TuringPhase.finished);
+      expect(t.client.result!.verdict, contains('不记战绩'));
+    });
+  });
 }
