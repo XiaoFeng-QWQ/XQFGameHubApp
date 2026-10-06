@@ -11,6 +11,9 @@ Hero 的「文案 / 手绘」由左右分栏改为上下堆叠），但配色、
 后端接口：`https://game.xfcode.top`，接口契约见
 `/media/xiaofengqwq/共享文件1/web/wwwroot/文档站/图灵测试/api接口`。
 
+> **开发说明**：本项目客户端使用 **DeepSeek-V4.1-Flash** 辅助开发，
+> 详见文末[「八、开发说明」](#八开发说明)。
+
 ---
 
 ## 当前进度
@@ -163,7 +166,7 @@ lib/
 ├── main.dart                     入口：初始化本地存储 / 会话 / 主题
 ├── app.dart                      MaterialApp + 全局主题 + 字体缩放钳制
 ├── core/
-│   ├── env.dart                  后端地址、协议 / 隐私政策、版本号
+│   ├── env.dart                  后端地址、协议 / 隐私政策、版本号、开发协助模型
 │   ├── storage/app_prefs.dart    token / 昵称 / 主题 / 设备指纹持久化
 │   ├── net/
 │   │   ├── api_client.dart       统一 HTTP：Bearer、错误解包、超时
@@ -315,7 +318,7 @@ tools/build_android.sh debug
 flutter test
 ```
 
-共 29 个用例，全部通过：
+共 30 个用例，全部通过：
 
 - `test/unit_test.dart` —— `XqfTime` 时间解析 / 格式化、`XqfPalette` 与 CSS 变量
   一致性、`XqfRadii` 与 `border-radius` 简写的对应关系、`parseApiError` 的
@@ -323,8 +326,8 @@ flutter test
 - `test/widget_test.dart` —— Widget 冒烟测试：设计系统组件（面板 / 按钮 / 标签 /
   印章 / 点阵纸 / 横格纸 / 虚线）、**全部 47 个线性图标的 SVG 解析**、玩法卡、
   账号中心未登录视图、身份卡；以及 App 外壳（竖屏底部导航 / 宽屏侧栏）、
-  玩法页、关于页（含「赞助支持」走弹窗而非外链）、折叠分组，
-  验证渲染不抛异常且关键文案与结构存在。
+  玩法页、关于页（含「赞助支持」走弹窗而非外链、客户端信息里的开发协助模型）、
+  折叠分组，验证渲染不抛异常且关键文案与结构存在。
 
 需要真实后端的页面级测试留待集成测试。
 
@@ -339,3 +342,19 @@ flutter test
 
 启动闪屏 `drawable*/launch_background.xml` 使用纸面底色，
 亮色 `#F8F9FA`、暗色 `#121220`，与 `style.css` 的 `--paper-bg` 对齐。
+
+---
+
+## 八、开发说明
+
+本项目客户端（Flutter / Dart）由 **DeepSeek-V4.1-Flash** 辅助开发，涵盖
+页面实现、设计系统与 CSS 变量对照、接口对接、模型层兼容解析以及测试编写。
+
+App 内「关于 → 客户端信息」同步展示了这一信息，取值自
+`lib/core/env.dart` 的 `XqfEnv.aiModel`，与本文档保持一致：
+
+| 位置 | 展示 |
+| --- | --- |
+| 关于页 · 客户端信息 | `开发协助` → `DeepSeek-V4.1-Flash` |
+| `XqfEnv.aiModel` | `'DeepSeek-V4.1-Flash'` |
+| 回归测试 | `test/widget_test.dart` → 「关于页客户端信息展示开发协助模型」 |

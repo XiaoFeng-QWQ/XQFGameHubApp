@@ -196,6 +196,7 @@ class _TechPanel extends StatelessWidget {
           const SizedBox(height: 10),
           _KeyValue(label: '客户端版本', value: 'v${XqfEnv.version}'),
           _KeyValue(label: '构建方式', value: 'Flutter · Android'),
+          _KeyValue(label: '开发协助', value: XqfEnv.aiModel),
           _KeyValue(label: '接口地址', value: XqfEnv.baseUrl),
           const SizedBox(height: 8),
           Text(

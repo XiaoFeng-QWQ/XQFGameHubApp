@@ -16,5 +16,10 @@ class XqfEnv {
   static const String appNameCn = 'XQF游戏中心';
   static const String version = '1.0.0';
 
+  /// 辅助完成本项目客户端开发的 AI 模型。
+  ///
+  /// 「关于 → 客户端信息」会展示它，与 README 的「开发说明」保持一致。
+  static const String aiModel = 'DeepSeek-V4.1-Flash';
+
   static const Duration requestTimeout = Duration(seconds: 25);
 }

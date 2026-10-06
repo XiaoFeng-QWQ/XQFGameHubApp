@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:xqf_game_hub/core/env.dart';
 import 'package:xqf_game_hub/core/storage/app_prefs.dart';
 import 'package:xqf_game_hub/core/theme/app_theme.dart';
 import 'package:xqf_game_hub/data/models/account.dart';
@@ -231,6 +232,17 @@ void main() {
     expect(find.text('备案信息'), findsOneWidget);
     expect(find.text('萌ICP备20269944号'), findsOneWidget);
     expect(find.text('假ICP备1202612号'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('关于页客户端信息展示开发协助模型', (WidgetTester tester) async {
+    await tester.pumpWidget(await _scope(const AboutPage(), bare: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('客户端信息'), findsOneWidget);
+    expect(find.text('开发协助'), findsOneWidget);
+    // 「关于」页与 README 的「开发说明」共用同一个常量
+    expect(find.text(XqfEnv.aiModel), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
