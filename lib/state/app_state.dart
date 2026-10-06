@@ -4,17 +4,23 @@ import '../core/net/api_client.dart';
 import '../core/storage/app_prefs.dart';
 import '../data/api/account_api.dart';
 import '../data/api/auth_api.dart';
+import '../data/hub_socket.dart';
 
-/// 全局服务容器（HTTP 客户端与各领域 API）。
+/// 全局服务容器（HTTP 客户端、各领域 API、唯一的 WS 连接）。
 class AppServices {
   AppServices(this.prefs)
-      : client = ApiClient(tokenProvider: () => prefs.token) {
+      : client = ApiClient(tokenProvider: () => prefs.token),
+        hub = HubSocket() {
     auth = AuthApi(client);
     account = AccountApi(client);
   }
 
   final AppPrefs prefs;
   final ApiClient client;
+
+  /// 全站唯一的 `wss://…/ws` 连接（服务端同 IP 只允许一条，见 [HubSocket]）。
+  final HubSocket hub;
+
   late final AuthApi auth;
   late final AccountApi account;
 }

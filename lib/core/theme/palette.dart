@@ -280,6 +280,30 @@ class XqfRadii {
 
   /// 纯圆（头像、圆形返回键）
   static const BorderRadius circle = BorderRadius.all(Radius.circular(999));
+
+  // ---- 玩法内页（图灵测试）----
+
+  /// 对局「笔记本」容器（Web 端 `.notebook-container`：`5px 15px 15px 5px`，书脊感）。
+  static const BorderRadius notebook = BorderRadius.only(
+    topLeft: Radius.circular(5),
+    topRight: Radius.circular(15),
+    bottomRight: Radius.circular(15),
+    bottomLeft: Radius.circular(5),
+  );
+
+  /// 对手气泡（Web 端 `.bubble-left`：`15px 15px 15px 0`，缺口在左下）。
+  static const BorderRadius bubbleLeft = BorderRadius.only(
+    topLeft: Radius.circular(15),
+    topRight: Radius.circular(15),
+    bottomRight: Radius.circular(15),
+  );
+
+  /// 自己气泡（Web 端 `.bubble-right`：`15px 15px 0 15px`，缺口在右下）。
+  static const BorderRadius bubbleRight = BorderRadius.only(
+    topLeft: Radius.circular(15),
+    topRight: Radius.circular(15),
+    bottomLeft: Radius.circular(15),
+  );
 }
 
 /// 错位实心阴影（Web 端 `box-shadow: Xpx Ypx 0 var(--shadow-*)`）。

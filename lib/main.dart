@@ -22,5 +22,8 @@ Future<void> main() async {
   final AuthController auth = AuthController(prefs)..restore();
   final ThemeController theme = ThemeController(prefs);
 
+  // 全站唯一的 WS 连接（在线人数 / 全服公告 / 对局共用；服务端同 IP 只允许一条）
+  services.hub.start();
+
   runApp(XqfApp(services: services, auth: auth, theme: theme));
 }

@@ -45,8 +45,8 @@ class _AppShellState extends State<AppShell> {
     final XqfPalette p = XqfPalette.of(context);
 
     final List<Widget> pages = <Widget>[
-      HomePage(onOpenGames: () => _select(1)),
-      const GamesPage(),
+      HomePage(onOpenGames: () => _select(1), onRequireLogin: () => _select(2)),
+      GamesPage(onRequireLogin: () => _select(2)),
       const AccountPage(),
     ];
 

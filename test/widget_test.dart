@@ -11,12 +11,13 @@ import 'package:xqf_game_hub/core/env.dart';
 import 'package:xqf_game_hub/core/storage/app_prefs.dart';
 import 'package:xqf_game_hub/core/theme/app_theme.dart';
 import 'package:xqf_game_hub/data/models/account.dart';
-import 'package:xqf_game_hub/data/online_service.dart';
+import 'package:xqf_game_hub/data/hub_socket.dart';
 import 'package:xqf_game_hub/state/app_state.dart';
 import 'package:xqf_game_hub/ui/pages/about_page.dart';
 import 'package:xqf_game_hub/ui/pages/account/account_guest.dart';
 import 'package:xqf_game_hub/ui/pages/account/account_hero.dart';
 import 'package:xqf_game_hub/ui/pages/account/account_page.dart';
+import 'package:xqf_game_hub/ui/pages/turing/turing_page.dart';
 import 'package:xqf_game_hub/ui/widgets/app_icon.dart';
 import 'package:xqf_game_hub/ui/widgets/doodle.dart';
 import 'package:xqf_game_hub/ui/pages/app_shell.dart';
@@ -46,7 +47,7 @@ Future<AppScope> _scope(Widget child, {bool bare = false}) async {
 void main() {
   setUpAll(() {
     // 测试里不发起真实 WebSocket 连接
-    OnlineService.disabled = true;
+    HubSocket.disabled = true;
   });
 
   testWidgets('设计系统组件可渲染', (WidgetTester tester) async {
@@ -222,6 +223,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('图灵测试落地页：未登录时引导去登录', (WidgetTester tester) async {
+    await tester.pumpWidget(await _scope(
+      TuringPage(onRequireLogin: () {}),
+      bare: true,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('屏幕那边的家伙，\n真的是人吗？'), findsOneWidget);
+    expect(find.text('需要登录后才能开始对局'), findsOneWidget);
+    expect(find.text('去「我的」登录'), findsOneWidget);
+    // 未登录不出现开局入口
+    expect(find.text('马上开始匹配'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('图灵测试落地页：已登录时可选时长并开局', (WidgetTester tester) async {
+    final AppScope scope = await _scope(
+      TuringPage(onRequireLogin: () {}),
+      bare: true,
+    );
+    await scope.auth.signIn(token: 'tk_1', nickname: '测试者');
+    await tester.pumpWidget(scope);
+    await tester.pumpAndSettle();
+
+    expect(find.text('马上开始匹配'), findsOneWidget);
+    expect(find.text('10 分钟'), findsOneWidget);
+    expect(find.text('5 分钟'), findsOneWidget);
+    expect(find.text('需要登录后才能开始对局'), findsNothing);
+
+    // 开局 → 进入匹配中（匹配页有常驻动画，不能用 pumpAndSettle）
+    await tester.tap(find.text('马上开始匹配'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('正在为你寻找对手…'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('竖屏用底部导航：三个页签 + 切换', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(400, 860);
     tester.view.devicePixelRatio = 1.0;
@@ -276,7 +314,7 @@ void main() {
 
   testWidgets('玩法页展示全部玩法与筛选', (WidgetTester tester) async {
     await tester.pumpWidget(await _scope(
-      Scaffold(body: const GamesPage()),
+      Scaffold(body: GamesPage(onRequireLogin: () {})),
       bare: true,
     ));
     await tester.pumpAndSettle();

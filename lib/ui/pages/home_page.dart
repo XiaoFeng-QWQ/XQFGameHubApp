@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import '../../core/env.dart';
 import '../../core/theme/palette.dart';
 import '../../data/game_catalog.dart';
-import '../../data/online_service.dart';
+import '../../data/hub_socket.dart';
+import '../../state/app_state.dart';
 import '../widgets/app_header.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/arcade_art.dart';
@@ -23,24 +24,32 @@ import 'games_page.dart';
 /// 走马灯压成一行、Hero 缩小、手绘游戏机仅在宽屏出现、玩法卡片提到主推之后，
 /// 网页式页脚已移出主滚动流（改到「关于」页）。
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.onOpenGames});
+  const HomePage({
+    super.key,
+    required this.onOpenGames,
+    required this.onRequireLogin,
+  });
 
   /// 跳到「玩法」页签。
   final VoidCallback onOpenGames;
+
+  /// 未登录时点玩法入口：由外层切到「我的」页签。
+  final VoidCallback onRequireLogin;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final OnlineService _online = OnlineService();
   StreamSubscription<String>? _broadcastSub;
 
   @override
-  void initState() {
-    super.initState();
-    _online.start();
-    _broadcastSub = _online.broadcasts.listen((String text) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 只订阅一次。HubSocket 由 AppServices 持有、main.dart 启动，
+    // 页面不负责它的生命周期（全站唯一连接，见 HubSocket 注释）。
+    if (_broadcastSub != null) return;
+    _broadcastSub = AppScope.of(context).services.hub.broadcasts.listen((String text) {
       if (!mounted) return;
       showTopToast(context, '全服公告：$text');
     });
@@ -49,7 +58,6 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _broadcastSub?.cancel();
-    _online.dispose();
     super.dispose();
   }
 
@@ -73,7 +81,7 @@ class _HomePageState extends State<HomePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        _HeroSection(online: _online),
+                        _HeroSection(online: AppScope.of(context).services.hub),
                         const SizedBox(height: 26),
 
                         // ---------- 主推位 ----------
@@ -81,7 +89,8 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: 14),
                         HubBox(
                           entry: GameCatalog.featured,
-                          onTap: () => openGame(context, GameCatalog.featured),
+                          onTap: () => openGame(context, GameCatalog.featured,
+                            onRequireLogin: widget.onRequireLogin),
                         ),
                         const SizedBox(height: 28),
 
@@ -98,7 +107,8 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: 14),
                         GameGrid(
                           games: GameCatalog.featuredOnHome,
-                          onTap: (GameEntry g) => openGame(context, g),
+                          onTap: (GameEntry g) =>
+                              openGame(context, g, onRequireLogin: widget.onRequireLogin),
                         ),
                         const SizedBox(height: 28),
 
@@ -139,7 +149,7 @@ class _HomePageState extends State<HomePage> {
 class _HeroSection extends StatelessWidget {
   const _HeroSection({required this.online});
 
-  final OnlineService online;
+  final HubSocket online;
 
   static const List<String> marquee = <String>[
     '图灵测试',
@@ -293,7 +303,7 @@ class _Marquee extends StatelessWidget {
 class _HeroCopy extends StatelessWidget {
   const _HeroCopy({required this.online, required this.compact});
 
-  final OnlineService online;
+  final HubSocket online;
   final bool compact;
 
   @override

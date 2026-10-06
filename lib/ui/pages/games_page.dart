@@ -2,29 +2,57 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/palette.dart';
 import '../../data/game_catalog.dart';
+import '../../state/app_state.dart';
 import '../widgets/app_header.dart';
 import '../widgets/breakpoints.dart';
 import '../widgets/doodle.dart';
 import '../widgets/fold_section.dart';
 import '../widgets/hub_card.dart';
 import '../widgets/toast.dart';
+import 'turing/turing_page.dart';
 import 'web_page.dart';
 
-/// 打开一个玩法。外部站点走系统浏览器，其余玩法暂未接入。
-Future<void> openGame(BuildContext context, GameEntry entry) async {
+/// 打开一个玩法。
+///
+/// - 外部站点（污染卡牌）→ App 内 WebView
+/// - 图灵测试 → 玩法页（要求先登录）
+/// - 其余 → 提示后续版本接入
+Future<void> openGame(
+  BuildContext context,
+  GameEntry entry, {
+  VoidCallback? onRequireLogin,
+}) async {
   final String? url = GameCatalog.externalUrls[entry.id];
   if (url != null) {
     // 外部玩法也留在 App 内打开，需要时可在页面右上角切到浏览器
     await openInAppWeb(context, url: url, title: entry.title);
     return;
   }
+
+  if (entry.id == 'turing') {
+    if (!AppScope.of(context).auth.isLoggedIn) {
+      showTopToast(context, '请先登录后再开始对局', isError: true);
+      onRequireLogin?.call();
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TuringPage(onRequireLogin: onRequireLogin ?? () {}),
+      ),
+    );
+    return;
+  }
+
   if (!context.mounted) return;
   showTopToast(context, '「${entry.title}」将在后续版本接入，敬请期待');
 }
 
 /// 玩法页：全部玩法 + 分类筛选。
 class GamesPage extends StatefulWidget {
-  const GamesPage({super.key});
+  const GamesPage({super.key, required this.onRequireLogin});
+
+  /// 未登录时点玩法入口：由外层切到「我的」页签。
+  final VoidCallback onRequireLogin;
 
   @override
   State<GamesPage> createState() => _GamesPageState();
@@ -71,7 +99,8 @@ class _GamesPageState extends State<GamesPage> {
                     const SizedBox(height: 18),
                     _GameGrid(
                       games: games,
-                      onTap: (GameEntry g) => openGame(context, g),
+                      onTap: (GameEntry g) =>
+                          openGame(context, g, onRequireLogin: widget.onRequireLogin),
                     ),
                     const SizedBox(height: 22),
                     const EmptyTip(

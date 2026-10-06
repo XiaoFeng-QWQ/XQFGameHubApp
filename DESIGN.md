@@ -70,7 +70,7 @@ Container(color: const Color(0xFFFDF5C9), ...)
 
 ### 1.2 圆角
 
-**只有 11 个档位**（9 个椭圆圆角 + 2 个规则圆角），
+**只有 14 个档位**（11 个椭圆圆角 + 3 个规则圆角），
 椭圆档位对应 CSS 的 `a b c d / e f g h`。
 禁止自己写 `BorderRadius.circular(N)`。
 
@@ -90,6 +90,9 @@ Container(color: const Color(0xFFFDF5C9), ...)
 | `XqfRadii.sheet` | `18px`（仅顶部） | 底部抽屉 |
 | `XqfRadii.micro` | `3px` | 审核角标、小药丸、拖拽把手 |
 | `XqfRadii.circle` | `999px` | 头像、圆形图标按钮 |
+| `XqfRadii.notebook` | `5px 15px 15px 5px` | 对局「笔记本」容器（书脊感） |
+| `XqfRadii.bubbleLeft` | `15px 15px 15px 0` | 对局气泡（对手，缺口左下） |
+| `XqfRadii.bubbleRight` | `15px 15px 0 15px` | 对局气泡（自己，缺口右下） |
 
 ### 1.3 阴影
 
@@ -328,14 +331,52 @@ try {
 > `AppearancePanel` 内部用 `ListenableBuilder` 显式监听 `ThemeController`：
 > `AppScope` 只在实例变化时通知，主题模式切换不会触发它。
 
+### 2.9 玩法内页（对局界面）
+
+> 这一节原先在「未定项」里挂着「完全空白」。图灵测试落地时定了第一版，
+> 后续玩法（海龟汤 / 棋类 / 聊天室）沿用同一套骨架。
+
+**骨架**：`AppHeader` 固定不滚 + 一个按阶段切换的内容区，
+外层是 `DotGridBackground`。阶段的枚举与 UI 一一对应：
+
+| 阶段 | 视图 | 对应 Web 端 |
+| --- | --- | --- |
+| `landing` | `TuringLandingView` | `#landing-page` |
+| `matching` | `TuringMatchingView` | `#matching-page` |
+| `chatting` / `waitingOpponent` | `TuringChatView` | `#chat-page` |
+| `finished` | `TuringResultView` | `#result-area` |
+
+**对局容器**（`.notebook-container`）—— 白色纸面 + 2px 墨色描边 +
+`XqfRadii.notebook`（`5px 15px 15px 5px`，书脊感）+ `XqfShadows.soft`，限宽 900。
+
+**聊天区** —— `RuledPaper(lineHeight: 30, lineColor: chatGrid)` 铺横格纸；
+气泡左黄右蓝、2px 墨色描边、`XqfRadii.bubbleLeft` / `bubbleRight`、最大宽度 70%；
+系统提示居中斜体，需要醒目时（判定通知）用 `danger` 色加粗。
+
+**判定区** —— 深色底 `judgeBg` + 白色文字，两个描边按钮（人类 / AI），
+未解锁时 `Opacity(0.4)` 且不可点。判定门槛的文案由客户端算：
+「开局 10 秒后 / 你发送一条消息 即可判定」。
+
+**结果页** —— 图标 + 结论 + 揭示 + 六项数据（你的判断 / 对方身份 / 对方标签 /
+对方猜你是 / 对话条数 / 用时），次要操作收进可折叠的「更多操作」。
+
+三条硬约束：
+
+1. **对局必须复用全局唯一的 WS 连接**（`HubSocket`）。服务端同 IP 全站只保留
+   一条连接（last-wins，跨入口共享），自己再开一条会互相踢成无限重连。
+2. **不自己画状态机之外的 UI**：判定门槛、超时文案、时间到收口都放
+   `TuringClient`，视图只读状态、不做业务判断（便于单测，见
+   `test/turing_test.dart`）。
+3. **对手昵称在对局中显示为 `???`**，结果页才揭晓 —— 这是玩法本身的信息设计，
+   不是占位符。
+
 ---
 
 ## 3. 未定项（真正的空白，别假装有规范）
 
 | 项 | 状态 |
 | --- | --- |
-| **玩法内页的视觉语言** | 完全空白。对局界面、聊天室长什么样没定 |
-| **横屏下玩法内页怎么排** | 讨论过"按页面锁方向"（五子棋/围棋横屏更合适），但**没定** |
+| **横屏下玩法内页怎么排** | 图灵测试是聊天流，横竖屏都自适应、**不锁方向**；棋类（五子棋/围棋）横屏更合适，但**还没做，也没定** |
 | **空态 / 错误态 / 加载态的使用规则** | 组件都有（`EmptyTip` / `_WebError` / `LoadingBlock`），但"什么情况用哪种"没规则 |
 | **文案语气** | toast 偏口语（「将在后续版本接入，敬请期待」），没统一约定 |
 | **无障碍** | 语义标签只在底部导航加了一处，对比度没验过 |

@@ -22,10 +22,11 @@ Hero 的「文案 / 手绘」由左右分栏改为上下堆叠），但配色、
 | --- | --- |
 | 首页（游戏中心） | ✅ 已完成 |
 | 账号中心 `/account` | ✅ 已完成 |
-| 图灵测试 / 海龟汤 / 五子棋 / 围棋 / 聊天室 / 临时聊天 / 社区 / 周报 | ⏳ 后续版本接入 |
+| **图灵测试（1v1）** | ✅ **已完成** |
+| 海龟汤 / 五子棋 / 围棋 / 聊天室 / 临时聊天 / 社区 / 周报 | ⏳ 后续版本接入 |
 
-首页与账号中心内的玩法入口目前会提示「将在后续版本接入」，外部站点（污染卡牌）
-会直接用系统浏览器打开。
+玩法入口中，图灵测试已可实际对局（要求先登录）；其余仍提示「将在后续版本接入」，
+外部站点（污染卡牌）在 App 内 WebView 打开。
 
 ---
 
@@ -60,6 +61,43 @@ Hero 的「文案 / 手绘」由左右分栏改为上下堆叠），但配色、
 - 全部玩法网格（按宽度 2 / 3 / 4 列自适应）+ 分类筛选
   （全部 / 推理对局 / 棋盘竞技 / 聊天社交 / 卡牌对战）。
 - 外部站点玩法（污染卡牌）用系统浏览器打开，其余提示后续版本接入。
+
+### 图灵测试（1v1）
+
+第一个真正可玩的玩法。入口：首页主推位「马上开始匹配」，或玩法页「推理对局」。
+**要求先登录**（未登录会提示并跳到「我的」页签）——战绩、标签、聊天记录都要归属账号。
+
+四个阶段：**落地 → 匹配 → 对局 → 结果**。
+
+- **落地**：Hero 文案 + 时长选择（10 / 5 分钟）+ 实时在线人数。
+  Web 端还有个「无限」选项，但接口契约只写 `duration(300/600)`，
+  且 Web 自己的 `parseInt(v) || 600` 会把 `0` 变成 `600`（选项形同虚设），
+  所以这里只给真正受支持的两档。
+- **匹配**：三点跳动动画 + 连接状态提示。
+- **对局**：笔记本式容器（书脊圆角 + 横格纸聊天区），左黄右蓝气泡、
+  2px 墨色描边；对手昵称在对局中显示为 `???`，结果页才揭晓。
+  输入框复用 `DoodleField`（内嵌表情按钮），表情列表复用 HTTP
+  `/api/sticker/list`，选中后走 WS 发 `{type:'sticker', id}`。
+- **判定**：深色判定区，「它是人类」/「它是 AI」+ 可选标签。
+  **门槛是「开局满 10 秒」且「自己发过 ≥1 条消息」**，未满足时按钮置灰并说明原因。
+- **结果**：胜负结论 + 揭示 + 六项数据（你的判断 / 对方身份 / 对方标签 /
+  对方猜你是 / 对话条数 / 用时），可折叠的「更多操作」里有
+  **保存聊天记录**、**分享战绩到聊天室**、**给对方留言**，以及「再来一局」。
+
+几条实现上值得留意的规则（都在 `TuringClient` 里，有单测锁住）：
+
+- 双方 60 秒内没互发消息 → 判平局、**不记战绩**。
+- 聊天时间到 → 自动开 60 秒判定窗口，此时**输入区收口**。
+- 已提交判定后**输入仍可用**（Web 端只隐藏判定区），等待对方最多 60 秒。
+- 服务端 `timeout.reason` 有 7 种，且 `you_timeout` / `both_timeout` 要先收敛成
+  `you` / `both` 才对应得上结果文案（不收敛会把平局显示成「猜错了」）。
+- 断线时覆盖一层重连提示，恢复后自动消失；重连会带 `reconnect_session_id` 恢复对局。
+
+> ⚠️ **对局必须复用全局唯一的那条 WS 连接。**
+> 服务端 `BaseGameHandler::onOpen` 做了 IP 去重（last-wins，跨 `/ws`、`/ws/lobby`、
+> `/ws/board/*` 等所有入口共享），同一 IP 再来一条会把旧连接踢掉。
+> 所以原先「首页自己持有一条 `/ws`」的结构改成了全局 `HubSocket`
+> （在线人数 / 全服公告 / 对局共用），见 `lib/data/hub_socket.dart`。
 
 ### 关于页
 
@@ -202,8 +240,10 @@ lib/
 ├── data/
 │   ├── api/                      auth_api / account_api（按文档分节）
 │   ├── models/                   account / tags / chat_history / sticker /
-│   │                             player_message / oauth
-│   └── online_service.dart       WebSocket 在线人数 + 全服公告
+│   │                             player_message / oauth / turing
+│   ├── hub_socket.dart           全站唯一的 WS 连接（在线人数 / 公告 / 对局共用）
+│   └── turing/
+│       └── turing_client.dart    图灵测试对局状态机（纯逻辑，有单测）
 ├── data/game_catalog.dart        玩法目录（首页精选与玩法页共用）
 ├── state/app_state.dart          AppServices / AuthController /
 │                                 ThemeController / AppScope
@@ -212,16 +252,18 @@ lib/
     │   ├── breakpoints.dart      响应式断点
     │   ├── bottom_nav.dart       底部导航 / 侧边导航栏
     │   ├── sponsor.dart          赞助弹窗（首页票根与关于页共用）
-    │   └── image_viewer.dart     全屏图片查看（收款码）
+    │   ├── image_viewer.dart     全屏图片查看（收款码）
+    │   └── turing/               对局专用：聊天气泡 / 表情选择器
     └── pages/
         ├── app_shell.dart        外壳：导航 + 页面栈
         ├── home_page.dart        首页
-        ├── games_page.dart       玩法页
+        ├── games_page.dart       玩法页（含 openGame 入口分发）
         ├── about_page.dart       关于页
         ├── web_page.dart         内置 WebView（外链统一入口）
+        ├── turing/               图灵测试：外壳 + 落地 / 匹配 / 对局 / 结果
         └── account/
             ├── account_page.dart     账号中心外壳（加载 / 未登录 / 已登录）
-            ├── account_guest.dart    未登录视图
+            ├── account_guest.dart    未登录视图（登录卡两个 tab）
             ├── account_hero.dart     身份卡
             ├── appearance_panel.dart 外观（主题三态，登录与否都可见）
             └── panels/               标签 / 聊天记录 / 表情 / 留言 /
@@ -309,7 +351,11 @@ tools/build_android.sh debug
 | 表情 | `GET /api/sticker/list`、`POST /api/sticker/upload`、`/delete`、`/add-to-mine` |
 | 留言 | `GET /api/player-messages`、`POST /api/player-message/hide`、`/settings` |
 | 第三方绑定 | `GET /api/oauth/providers`、`GET /api/oauth/bindings`、`POST /api/oauth/unbind`、`POST /api/oauth/sync-avatar` |
-| 在线人数 / 公告 | `wss://game.xfcode.top/ws`（`online_count` / `broadcast` / `ping`） |
+| 在线人数 / 公告 / 对局 | `wss://game.xfcode.top/ws`（`online_count` / `broadcast` / `ping`） |
+| 图灵测试 · 开局 | `join`（`nickname` / `duration` 300\|600 / `fingerprint` / `player_token`） |
+| 图灵测试 · 对局 | `message` / `sticker` / `judge`（`guess` + `tag`）/ `report` / `leave` |
+| 图灵测试 · 结束 | `save_history` / `leave_message` / `share_record` |
+| 图灵测试 · 下发 | `matched` / `message` / `system` / `judge_notify` / `judged` / `timeout` / `sticker` / `save_history_status` / `leave_message_status` / `share_record_status` |
 
 后端约定「失败也返回 HTTP 200 + `{"error": "..."}`」，`ApiClient` 会统一转成
 `ApiException`，UI 层 catch 后直接 `showTopToast` 展示文案。
@@ -341,7 +387,7 @@ tools/build_android.sh debug
 flutter test
 ```
 
-共 32 个用例，全部通过：
+共 49 个用例，全部通过：
 
 - `test/unit_test.dart` —— `XqfTime` 时间解析 / 格式化、`XqfPalette` 与 CSS 变量
   一致性、`XqfRadii` 与 `border-radius` 简写的对应关系、`parseApiError` 的
@@ -350,8 +396,14 @@ flutter test
   印章 / 点阵纸 / 横格纸 / 虚线）、**全部 47 个线性图标的 SVG 解析**、玩法卡、
   账号中心未登录视图（含登录卡的 tab 切换）、身份卡；以及 App 外壳
   （竖屏底部导航 / 宽屏侧栏）、玩法页、关于页（含「赞助支持」走弹窗而非外链、
-  客户端信息里的开发协助模型）、折叠分组、「我的」页未登录时的外观三态切换，
+  客户端信息里的开发协助模型）、折叠分组、「我的」页未登录时的外观三态切换、
+  图灵测试落地页（未登录引导 / 已登录开局），
   验证渲染不抛异常且关键文案与结构存在。
+- `test/turing_test.dart` —— **图灵测试对局状态机**（不连服务端，
+  用 `HubSocket.debugEmit` 把服务端消息喂进解析链路）：判定门槛
+  （开局 10 秒 + 自己发过消息）、对方已判定解锁、双方判定后的对错结论、
+  聊天时间到只收口输入不产生结果、6 种结束原因的结果文案、
+  对手消息入流、未开局时忽略幽灵消息、reset 清空状态。
 
 需要真实后端的页面级测试留待集成测试。
 

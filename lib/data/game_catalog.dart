@@ -7,7 +7,19 @@ import '../ui/widgets/hub_card.dart';
 class GameCatalog {
   const GameCatalog._();
 
+  /// 主推玩法（首页大卡）。同时也是玩法页「推理对局」里的一项。
+  static const GameEntry featured = GameEntry(
+    id: 'turing',
+    title: '图灵测试（1v1）',
+    desc: '匿名连线 · 试探识破 · 判定人类或 AI · 对局后可测默契',
+    icon: 'chat-lines',
+    tone: NoteTone.green,
+    group: 'reason',
+    metas: <String>['5 / 10 分钟', '真人优先', '战绩存档'],
+  );
+
   static const List<GameEntry> all = <GameEntry>[
+    featured,
     GameEntry(
       id: 'soup',
       title: '海龟汤',
@@ -67,17 +79,6 @@ class GameCatalog {
       metas: <String>['9/13/19 路', '单机 / 联机'],
     ),
   ];
-
-  /// 主推玩法（首页大卡）。
-  static const GameEntry featured = GameEntry(
-    id: 'turing',
-    title: '图灵测试（1v1）',
-    desc: '匿名连线 · 试探识破 · 判定人类或 AI · 对局后可测默契',
-    icon: 'chat-lines',
-    tone: NoteTone.green,
-    group: 'reason',
-    metas: <String>['5 / 10 分钟', '真人优先', '战绩存档'],
-  );
 
   /// 首页「精选玩法」展示的条目。
   static const List<String> featuredOnHomeIds = <String>[
