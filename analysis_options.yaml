@@ -1,0 +1,16 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # 本项目 UI 代码大量使用显式类型标注，保持一致性
+    always_declare_return_types: true
+    prefer_single_quotes: true
+    unawaited_futures: true
+
+analyzer:
+  errors:
+    # Web 端风格需要大量自定义 Widget，避免因命名参数过多而报错
+    avoid_print: warning
+  exclude:
+    - build/**
+    - android/**

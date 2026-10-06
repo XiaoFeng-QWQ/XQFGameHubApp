@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与 Web 端 style.css 的 paper-bg 变量一致 -->
+    <color name="paper_bg">#F8F9FA</color>
+    <!-- 与 Web 端暗色主题的 paper-bg 变量一致 -->
+    <color name="paper_bg_dark">#121220</color>
+    <!-- 启动图标底色：与 Web 端 note-yellow 一致 -->
+    <color name="ic_launcher_background">#FDF5C9</color>
+</resources>

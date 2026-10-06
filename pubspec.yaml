@@ -1,0 +1,35 @@
+name: xqf_game_hub
+description: "XQFGameHub 游戏中心 —— 安卓客户端（Flutter）。"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # 中文系统控件文案（复制 / 粘贴 / 选择等）
+  flutter_localizations:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  # 网络：与 https://game.xfcode.top 的 HTTP / 文件上传
+  http: ^1.6.0
+  # 本地会话与主题持久化（对应 Web 端 localStorage）
+  shared_preferences: ^2.5.6
+  # 线性图标：直接复用 Web 端 style.css 的 SVG 路径
+  flutter_svg: ^2.3.0
+  # 头像 / 表情选择
+  image_picker: ^1.2.4
+  # 外部浏览器：用户协议、隐私政策、网页版入口
+  url_launcher: ^6.3.3
+  webview_flutter: ^4.14.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
