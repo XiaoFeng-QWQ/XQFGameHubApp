@@ -88,6 +88,7 @@ if command -v rsync >/dev/null 2>&1; then
   rsync -a --delete \
     --exclude 'build/' \
     --exclude '.dart_tool/' \
+    --exclude '.git/' \
     --exclude '.gradle/' \
     --exclude '.tooling/' \
     --exclude 'android/.gradle/' \
@@ -97,8 +98,8 @@ else
   rm -rf "$DEST"
   mkdir -p "$DEST"
   tar -C "$SRC_ROOT" \
-    --exclude='./build' --exclude='./.dart_tool' --exclude='./.gradle' \
-    --exclude='./.tooling' --exclude='./android/.gradle' \
+    --exclude='./build' --exclude='./.dart_tool' --exclude='./.git' \
+    --exclude='./.gradle' --exclude='./.tooling' --exclude='./android/.gradle' \
     -cf - . | tar -C "$DEST" -xf -
 fi
 
