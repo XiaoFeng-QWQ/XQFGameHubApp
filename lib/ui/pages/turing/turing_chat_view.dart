@@ -63,6 +63,7 @@ class _TuringChatViewState extends State<TuringChatView> {
         widget.client.sendSticker(id: s.id, name: s.displayName, url: s.imageUrl);
       },
     );
+    _dropFocusAfterSheet();
   }
 
   Future<void> _report() async {
@@ -72,9 +73,25 @@ class _TuringChatViewState extends State<TuringChatView> {
       backgroundColor: Colors.transparent,
       builder: (BuildContext ctx) => _ReportSheet(),
     );
-    if (reason == null || !mounted) return;
+    if (!mounted) return;
+    _dropFocusAfterSheet();
+    if (reason == null) return;
     // 回执由服务端 report_result 给出，外层统一弹提示
     widget.client.report(reason);
+  }
+
+  /// 底部面板关闭后把焦点彻底放掉。
+  ///
+  /// 面板 pop 时框架会把焦点**还给打开前的那个节点**
+  /// （`ModalRoute` 恢复自己的 `_focusedChild`），于是键盘又弹起来 ——
+  /// 打开前那次 `unfocus()` 挡不住，因为它只是把焦点移到 scope 上，
+  /// `_focusedChild` 仍指着输入框。所以关掉之后必须再收一次。
+  void _dropFocusAfterSheet() {
+    if (!mounted) return;
+    // 焦点恢复发生在 pop 之后（可能晚一帧），所以再等一帧收一次。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) FocusScope.of(context).unfocus();
+    });
   }
 
   void _scrollToBottomSoon() {
@@ -290,7 +307,7 @@ class _InputBar extends StatelessWidget {
 ///
 /// 未解锁时只占一条提示的高度；解锁后 [AnimatedSize] 展开出两个按钮和标签输入。
 /// 放在输入框**上方**，键盘弹起时不会被顶掉。
-class _JudgeBar extends StatelessWidget {
+class _JudgeBar extends StatefulWidget {
   const _JudgeBar({
     required this.client,
     required this.tagController,
@@ -302,9 +319,20 @@ class _JudgeBar extends StatelessWidget {
   final void Function(String guess) onJudge;
 
   @override
+  State<_JudgeBar> createState() => _JudgeBarState();
+}
+
+class _JudgeBarState extends State<_JudgeBar> {
+  /// 标签默认折叠。
+  ///
+  /// 判定区在手机上本来就占地方，而标签是**可选**的次要输入 ——
+  /// 常驻一个输入框等于把主要动作（两个判定按钮）往下挤。
+  bool _tagOpen = false;
+
+  @override
   Widget build(BuildContext context) {
     final XqfPalette p = XqfPalette.of(context);
-    final bool can = client.canJudge;
+    final bool can = widget.client.canJudge;
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 200),
@@ -313,7 +341,7 @@ class _JudgeBar extends StatelessWidget {
       child: Container(
         width: double.infinity,
         color: p.judgeBg,
-        padding: EdgeInsets.fromLTRB(14, can ? 12 : 8, 14, can ? 12 : 8),
+        padding: EdgeInsets.fromLTRB(14, can ? 10 : 8, 14, can ? 10 : 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -325,8 +353,7 @@ class _JudgeBar extends StatelessWidget {
                     child: _JudgeButton(
                       label: '它是人类',
                       icon: 'user',
-                      enabled: true,
-                      onTap: () => onJudge('human'),
+                      onTap: () => widget.onJudge('human'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -334,23 +361,54 @@ class _JudgeBar extends StatelessWidget {
                     child: _JudgeButton(
                       label: '它是 AI',
                       icon: 'server',
-                      enabled: true,
-                      onTap: () => onJudge('ai'),
+                      onTap: () => widget.onJudge('ai'),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              DoodleField(
-                controller: tagController,
-                hint: '给对手贴个标签（可选）',
-                maxLength: 10,
-                fontSize: 13,
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: () => setState(() => _tagOpen = !_tagOpen),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        AppIcon(
+                          _tagOpen ? 'chevron-down' : 'plus',
+                          size: 12,
+                          color: p.textAa,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          _tagOpen ? '收起标签' : '贴个标签（可选）',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            color: p.textAa,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 6),
+              if (_tagOpen) ...<Widget>[
+                const SizedBox(height: 4),
+                DoodleField(
+                  controller: widget.tagController,
+                  hint: '给对手贴个标签（10 字内）',
+                  maxLength: 10,
+                  fontSize: 13,
+                ),
+              ],
+              const SizedBox(height: 4),
             ],
             Text(
-              client.judgeHint,
+              widget.client.judgeHint,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'monospace',
@@ -370,20 +428,18 @@ class _JudgeButton extends StatelessWidget {
   const _JudgeButton({
     required this.label,
     required this.icon,
-    required this.enabled,
     required this.onTap,
   });
 
   final String label;
   final String icon;
-  final bool enabled;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final XqfPalette p = XqfPalette.of(context);
     return GestureDetector(
-      onTap: enabled ? onTap : null,
+      onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),

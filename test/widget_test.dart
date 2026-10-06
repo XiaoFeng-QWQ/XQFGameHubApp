@@ -422,6 +422,141 @@ void main() {
     client.dispose();
   });
 
+  testWidgets('判定区的标签默认折叠，点击才展开', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final AppPrefs prefs = await AppPrefs.init();
+    final AppServices services = AppServices(prefs);
+    final AuthController auth = AuthController(prefs)..restore();
+    final ThemeController theme = ThemeController(prefs);
+    final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
+
+    await tester.pumpWidget(AppScope(
+      services: services,
+      auth: auth,
+      theme: theme,
+      child: MaterialApp(
+        navigatorKey: navKey,
+        theme: XqfTheme.light(),
+        home: const Scaffold(body: Center(child: Text('占位首页'))),
+      ),
+    ));
+
+    final TuringClient client = TuringClient(services.hub);
+    client.start(
+      nickname: '测试者',
+      playerToken: 'tk',
+      fingerprint: 'fp',
+      durationSeconds: 300,
+    );
+    services.hub.debugEmit(<String, dynamic>{
+      'type': 'matched',
+      'opponent_name': '对手甲',
+      'session_id': 's1',
+      'duration': 300,
+    });
+    await tester.pump();
+    // 解锁判定并让自己发过消息
+    services.hub.debugEmit(<String, dynamic>{
+      'type': 'judge_notify',
+      'message': '对方已作出判定',
+      'seconds_remaining': 60,
+    });
+    await tester.pump();
+    client.sendMessage('你好');
+    await tester.pump();
+
+    navKey.currentState!.push(MaterialPageRoute<void>(
+      builder: (_) => TuringPage(onRequireLogin: () {}, client: client),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // 可判定了：两个按钮 + 折叠的标签入口
+    expect(find.text('它是人类'), findsOneWidget);
+    expect(find.text('贴个标签（可选）'), findsOneWidget);
+    // 默认折叠 —— 全页只有聊天输入框一个可编辑区
+    expect(find.byType(EditableText), findsOneWidget);
+
+    await tester.tap(find.text('贴个标签（可选）'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('收起标签'), findsOneWidget);
+    expect(find.byType(EditableText), findsNWidgets(2));
+
+    await tester.tap(find.text('收起标签'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(EditableText), findsOneWidget);
+
+    client.dispose();
+  });
+
+  testWidgets('关闭举报面板后不应把焦点还给输入框', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final AppPrefs prefs = await AppPrefs.init();
+    final AppServices services = AppServices(prefs);
+    final AuthController auth = AuthController(prefs)..restore();
+    final ThemeController theme = ThemeController(prefs);
+    final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
+
+    await tester.pumpWidget(AppScope(
+      services: services,
+      auth: auth,
+      theme: theme,
+      child: MaterialApp(
+        navigatorKey: navKey,
+        theme: XqfTheme.light(),
+        home: const Scaffold(body: Center(child: Text('占位首页'))),
+      ),
+    ));
+
+    final TuringClient client = TuringClient(services.hub);
+    client.start(
+      nickname: '测试者',
+      playerToken: 'tk',
+      fingerprint: 'fp',
+      durationSeconds: 300,
+    );
+    services.hub.debugEmit(<String, dynamic>{
+      'type': 'matched',
+      'opponent_name': '对手甲',
+      'session_id': 's1',
+      'duration': 300,
+    });
+    await tester.pump();
+
+    navKey.currentState!.push(MaterialPageRoute<void>(
+      builder: (_) => TuringPage(onRequireLogin: () {}, client: client),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final Finder input = find.descendant(
+      of: find.byKey(const Key('turing-input')),
+      matching: find.byType(EditableText),
+    );
+    await tester.showKeyboard(input);
+    await tester.pump();
+    expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+
+    // 打开举报面板
+    await tester.tap(find.byTooltip('举报对方'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('辱骂 / 人身攻击'), findsOneWidget);
+
+    // 点遮罩关闭
+    await tester.tapAt(const Offset(400, 40));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('辱骂 / 人身攻击'), findsNothing);
+    // 关掉面板后不该又把键盘弹回来
+    expect(tester.widget<EditableText>(input).focusNode.hasFocus, isFalse);
+
+    client.dispose();
+  });
+
   testWidgets('竖屏用底部导航：三个页签 + 切换', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(400, 860);
     tester.view.devicePixelRatio = 1.0;
